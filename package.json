@@ -16,8 +16,9 @@
   "readmeFilename": "README.md",
   "dependencies": {
     "express": "~3.1.0",
-    "socket.io": "~0.9.13",
-    "underscore": "~1.4.3"
+    "socket.io": "1",
+    "underscore": "~1.4.3",
+    "mongoose": "~3.5.4"
   },
   "subdomain": "altermedia",
   "engines": {

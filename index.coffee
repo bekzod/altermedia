@@ -1,8 +1,24 @@
-express= 	require 'express'
-io= 		require 'socket.io'
-_=			require 'underscore'
+express= require 'express'
+_= require 'underscore'
+mongoose= require('mongoose')
 
-app = express()
+schemas= require('./schema.js')
+
+
+app= express()
+server = require('http').createServer(app)
+io = require('socket.io').listen(server);
+server.listen(process.env.PORT or 3000)
+
+# local 'mongodb://localhost:27017/local'
+# server 'mongodb://nodejitsu:fb813f44c2434b9323749f86067f475c@alex.mongohq.com:10016/nodejitsudb9526573754'
+
+db = mongoose.createConnection(process.env.DATABASE);       
+db.on('error',(err)->console.log err)
+db.once('open',->console.log "mangoose connected")
+
+Segment= db.model("Segment",schemas.segment)
+Content= db.model("Content",schemas.content)
 
 app.configure ->
 	app.use(express.bodyParser());
@@ -14,7 +30,13 @@ app.configure ->
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 
 
+
 app.get '/',(req,res)->
 	res.send('hi there')
+
+
+app.post '/',(req,res)->
+	res.send(req.body);
+
 
 app.listen('8080')
