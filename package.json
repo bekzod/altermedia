@@ -4,7 +4,8 @@
   "description": "altermedia ==========",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "index.js"
   },
   "repository": {
     "type": "git",
@@ -17,5 +18,9 @@
     "express": "~3.1.*",
     "socket.io": "~0.9.13",
     "underscore": "~1.4.3"
+  },
+  "subdomain": "altermedia",
+  "engines": {
+    "node": "0.8.x"
   }
 }
