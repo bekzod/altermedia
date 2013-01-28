@@ -27,9 +27,24 @@ app.configure "production",->
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 
 
+
+
+# Socket management
+
+# socket.io configuration 
+io.configure ->
+	io.set 'authorization', (handshakeData, callback)->
+		console.log handshakeData.query
+		callback(null, true); 
+ 
+
+io.sockets.on 'connection',(socket)->
+	
+
+
+# Content Management API
 app.get '/',(req,res)->
 	res.send('hi there')
-
 
 app.post '/',(req,res)->
 	res.send(req.body);
