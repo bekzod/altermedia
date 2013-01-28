@@ -1,4 +1,5 @@
 express = require 'express'
+path= require 'path'
 mongoose = require('mongoose')
 schemas = require('./schema.js')
 _ = require 'underscore'
@@ -22,29 +23,34 @@ app.configure "production",->
 	app.use(express.methodOverride());
 	app.use(app.router);
 	app.use(express.cookieParser());
+	app.use(express.static(path.join(__dirname,"static")));
 	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
-	# app.use(express.static(path.join(__dirname,"static")));
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-
-
 
 
 # Socket management
 
 # socket.io configuration 
-io.configure ->
-	io.set 'authorization', (handshakeData, callback)->
-		console.log handshakeData.query
-		callback(null, true); 
- 
+io.configure "production",->
+	io.set 'log level',0
+	io.set('transports', [
+	    'websocket'
+	  , 'flashsocket'
+	  , 'htmlfile'
+	]);
 
-io.sockets.on 'connection',(socket)->
+
+io.of('/admin').on 'connection',(socket)->
+
+
+io.of('/player').on 'connection',(socket)->
+
 	
 
 
 # Content Management API
 app.get '/',(req,res)->
-	res.send('hi there')
+	res.redirect('/index.html')
 
 app.post '/',(req,res)->
 	res.send(req.body);

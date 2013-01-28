@@ -1,4 +1,5 @@
 .DS_Store
 *.js
-node_modules
+./node_modules
 npm-debug.log
+./static
