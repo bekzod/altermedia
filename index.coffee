@@ -18,11 +18,15 @@ db.once 'open',->console.log "mangoose connected"
 Segment= db.model("Segment",schemas.segment)
 Content= db.model("Content",schemas.content)
 
+
+app.configure ->
+	app.use app.router 
+	app.use express.bodyParser()
+	app.use express.methodOverride()
+
+
 app.configure "production",->
-	app.use(express.bodyParser());
-	app.use(express.methodOverride());
-	app.use(app.router);
-	app.use(express.cookieParser());
+	app.use express.cookieParser()
 	app.use(express.static(path.join(__dirname,"static")));
 	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
@@ -32,7 +36,7 @@ app.configure "production",->
 
 # socket.io configuration 
 io.configure "production",->
-	io.set 'log level',0
+	io.set 'log level',3
 	io.set('transports', [
 	    'websocket'
 	  , 'flashsocket'
@@ -43,16 +47,38 @@ io.configure "production",->
 io.of('/admin').on 'connection',(socket)->
 
 
-io.of('/player').on 'connection',(socket)->
 
-	
+io.of('/player').on 'connection',(player)->
+	console.log "got someone"
+	# player.on "CLIENT_EVENT_HANDSHAKE",(data)->
+	# 	console.log "dwadawd"
+	# 	console.log data
+	player.emit "SERVER_EVENT_ADD_SEGMENT"
+
+	# player.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgress
+	# player.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
+	# player.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail 
+	# player.on('disconnect',onDisconnectPlayer);
 
 
-# Content Management API
+onPlayerProgress=(data)->
+
+
+onPlayerComplete=(data)->
+
+onPlayerFail=(data)->
+
+
 app.get '/',(req,res)->
 	res.redirect('/index.html')
 
-app.post '/',(req,res)->
+
+# Segment Management API
+app.get '/segment/:playerid',(req,res)->
+	playerid = req.params.playerid
+	res.send(req.params.playerid)
+
+app.post '/segment',(req,res)->
 	res.send(req.body);
 
 
