@@ -10,11 +10,10 @@ io = require('socket.io').listen(server);
 server.listen(process.env.PORT or 3000)
 
 
-
 # 
 # Database connection
-# 
-mongoose.set('debug', true)
+#
+ObjectId = mongoose.Schema.Types.ObjectId;
 db = mongoose.createConnection(process.env.DATABASE);       
 db.on 'error',(err)->console.log err 
 db.once 'open',->
@@ -45,7 +44,6 @@ app.configure "production",->
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 
 
-
 # 
 # socket.io configuration 
 # 
@@ -65,18 +63,16 @@ io.of('/admin').on 'connection',(socket)->
 io.of('/player').on 'connection',(socket)->
 	socket.on "CLIENT_EVENT_HANDSHAKE",(player,callback)->
 		
-		# player.on('disconnect',onDisconnectPlayer);
 		socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgress
 		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
 		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
 
-
-		Player.findOne({_id:"510ec583a6bedff557000002"})
-		# .populate('segments')
+		Player.findById(player.appId)
+		.populate('segments')
 		.exec (err,serverPlayer)->
 			if(serverPlayer)
-				syncPlayer(socket,player,serverPlayer);
-				callback(player);
+				syncData=syncPlayer(socket,player,serverPlayer);
+				callback(syncData);
 			else 
 				socket.disconnect();
 
@@ -84,17 +80,33 @@ io.of('/player').on 'connection',(socket)->
 
 
 syncPlayer=(socket,player,serverPlayer)->
-	intersection=_.intersection player.segments,serverPlayer.segments
-	deleteSegments=_.difference player.segments,intersection
-	downloadSegments=_.difference serverPlayer.segments,intersection
+	playerSegmentID=player.segment
+	serverSegmentID=_.pluck serverPlayer.segments,'_id'
 
+	intersectionID=_.intersection playerSegmentID,serverSegmentID
+	deleteSegmentsID=_.difference serverSegmentID,intersectionID
+	downloadSegmentsID=_.difference serverSegmentID,intersectionID
+
+	downloadSegments=_.filter serverPlayer.segments,(seg)->
+		downloadSegmentsID.splice(downloadSegmentsID.indexOf(seg._id),1);
+
+	serverPlayer.lastsync=Date.now();
+	d={
+		segments:
+			"delete":deleteSegmentsID
+			"load":downloadSegments
+	}
+	console.log d
+	d
 
 
 
 
 
 onPlayerProgress=(data)->
+
 onPlayerComplete=(data)->
+
 onPlayerFail=(data)->
 
 
