@@ -79,23 +79,28 @@ io.of('/player').on 'connection',(socket)->
 
 
 syncPlayer=(socket,player,serverPlayer)->
-	playerSegmentID=player.segment
-	serverSegmentID=_.pluck serverPlayer.segments,'_id'
+	playerSegmentID=player.resources.segments
+	serverSegmentID=_.map serverPlayer.segments,(seg)-> seg._id.toString();
+
+	# console.log playerSegmentID,serverSegmentID
 
 	intersectionID=_.intersection playerSegmentID,serverSegmentID
 	deleteSegmentsID=_.difference serverSegmentID,intersectionID
 	downloadSegmentsID=_.difference serverSegmentID,intersectionID
 
 	t=0
-	load=[downloadSegmentsID.length]
+	load=new Array(downloadSegmentsID.length)
 	serverPlayer.segments.forEach (seg)->
-		shouldbeListed=downloadSegmentsID.splice(downloadSegmentsID.indexOf(seg._id),1);
+		shouldbeListed=downloadSegmentsID.indexOf(seg._id)>-1
 		if shouldbeListed
 			segJSON=seg.toJSON()
 			delete segJSON._id
 			delete segJSON.__v
+			delete segJSON.endDate # deleteing endDate it cane be calculated again in player
 			load[t++]=segJSON;
-		
+		else if downloadSegmentsID.length is 0
+			return
+	
 	serverPlayer.lastsync=Date.now();
 	{
 		segments:
