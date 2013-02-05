@@ -67,16 +67,15 @@ io.of('/player').on 'connection',(socket)->
 		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
 		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
 
+		now=Date.now()+2000
 		Player.findById(player.appId)
-		.populate('segments')
+		.populate('segments',null,{endDate:{$gte:now}})
 		.exec (err,serverPlayer)->
 			if(serverPlayer)
 				syncData=syncPlayer(socket,player,serverPlayer);
 				callback(syncData);
 			else 
 				socket.disconnect();
-
-
 
 
 syncPlayer=(socket,player,serverPlayer)->
@@ -87,19 +86,22 @@ syncPlayer=(socket,player,serverPlayer)->
 	deleteSegmentsID=_.difference serverSegmentID,intersectionID
 	downloadSegmentsID=_.difference serverSegmentID,intersectionID
 
-	downloadSegments=_.filter serverPlayer.segments,(seg)->
-		downloadSegmentsID.splice(downloadSegmentsID.indexOf(seg._id),1);
-
+	t=0
+	load=[downloadSegmentsID.length]
+	serverPlayer.segments.forEach (seg)->
+		shouldbeListed=downloadSegmentsID.splice(downloadSegmentsID.indexOf(seg._id),1);
+		if shouldbeListed
+			segJSON=seg.toJSON()
+			delete segJSON._id
+			delete segJSON.__v
+			load[t++]=segJSON;
+		
 	serverPlayer.lastsync=Date.now();
-	d={
+	{
 		segments:
 			"delete":deleteSegmentsID
-			"load":downloadSegments
+			"load":load
 	}
-	console.log d
-	d
-
-
 
 
 
