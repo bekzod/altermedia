@@ -1,5 +1,6 @@
 express = require 'express'
 path= require 'path'
+async= require 'async'
 mongoose = require('mongoose')
 schemas = require('./schema.js')
 _ = require 'underscore'
@@ -61,52 +62,109 @@ io.of('/admin').on 'connection',(socket)->
 
 
 io.of('/player').on 'connection',(socket)->
-	socket.on "CLIENT_EVENT_HANDSHAKE",(player,callback)->
+	socket.on "CLIENT_EVENT_HANDSHAKE",(handShakeData,callback)->
 		
 		socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgress
 		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
 		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
 
-		now=Date.now()+2000
-		Player.findById(player.appId)
-		.populate('segments',null,{endDate:{$gte:now}})
-		.exec (err,serverPlayer)->
-			if(serverPlayer)
-				syncData=syncPlayer(socket,player,serverPlayer);
-				callback(syncData);
+		Player.findById handShakeData.id,(err,res)->
+			if(!err)
+				socket.player=res
+				syncPlayer(socket,handShakeData,callback);
+				addSegmentsToPlayer(handShakeData.id,[{}])
 			else 
 				socket.disconnect();
 
 
-syncPlayer=(socket,player,serverPlayer)->
-	playerSegmentID=player.resources.segments
-	serverSegmentID=_.map serverPlayer.segments,(seg)-> seg._id.toString();
 
-	# console.log playerSegmentID,serverSegmentID
 
-	intersectionID=_.intersection playerSegmentID,serverSegmentID
-	deleteSegmentsID=_.difference serverSegmentID,intersectionID
-	downloadSegmentsID=_.difference serverSegmentID,intersectionID
 
-	t=0
-	load=new Array(downloadSegmentsID.length)
-	serverPlayer.segments.forEach (seg)->
-		shouldbeListed=downloadSegmentsID.indexOf(seg._id)>-1
-		if shouldbeListed
-			segJSON=seg.toJSON()
-			delete segJSON._id
-			delete segJSON.__v
-			delete segJSON.endDate # deleteing endDate it cane be calculated again in player
-			load[t++]=segJSON;
-		else if downloadSegmentsID.length is 0
-			return
+syncPlayer=(socket,player,cb)->
+	now=Date.now()
+
+	Segment.find
+		'_id': { $in:socket.player.segments}
+		'endDate': { $gte:now} 
+		,(err,res)->
+			return cb&&cb(err) if err
+
+			playerSegmentID=player.resources.segments
+			serverSegmentID=_.map res,(seg)-> seg._id.toString();
+
+			intersectionID=_.intersection playerSegmentID,serverSegmentID
+			deleteSegmentsID=_.difference serverSegmentID,intersectionID
+			downloadSegmentsID=_.difference serverSegmentID,intersectionID
+			
+			load=new Array(downloadSegmentsID.length)
+
+			for seg in res
+				if _.contains(downloadSegmentsID,seg._id)
+					leanSeg=_.omit(seg.toJSON(),['_id','__v','endDate'])
+					load[load.length]=leanSeg;
+				else if downloadSegmentsID.length is 0
+					return
+			
+			cb {segments:{"delete":deleteSegmentsID,"load":load}}
+
+
+
+
+findPlayerSocketById=(playerId)->
+	sockets=io.of('/player').clients()
+	_.find sockets,(socks)->socks.player?.id is playerId
+
+
+addSegmentsToPlayer=(playerid,segmentsData,cb)->
+	async.parallel [
+		(callback)->
+			playerSocket=findPlayerSocketById(playerid);
+			if playerSocket and playerSocket.player
+				callback(null,playerSocket.player,playerSocket)
+			else 
+				Player.findById playerid,callback
+
+		(callback)->
+			creationArray=_.map segmentsData,(segData)->
+					(callback)->
+						newseg=new Segment segData 
+						leanSeg=_.omit newseg.toJSON(),['_id','__v','endDate']
+						newseg.save (err)->callback(err,leanSeg)
+			
+			async.parallel creationArray,callback
+
+	],(err,res)->
+		return cb&&cb(err) if err
+
+		segmentModels=res[1]
+		if _.isArray(res[0])
+			playerModel=res[0][0]
+			playerSocket=res[0][1]
+
+			for seg in segmentModels
+				playerModel.segments.push seg.id
+			
+			playerModel.save (err)->
+				return cb&&cb(err) if err
+				playerSocket.emit 'SERVER_EVENT_ADD_SEGMENT',segmentModels
+			cb&&cb(null)
+		else
+			playerModel=res[0];
+			playerModel.segments.$pushAll(segmentModels)
+			playerModel.save (err)-> cb&&cb(err) if err
+
+
+
+removeSegmentsFromPlayer=(playerid,segmentId,cb)->
 	
-	serverPlayer.lastsync=Date.now();
-	{
-		segments:
-			"delete":deleteSegmentsID
-			"load":load
-	}
+	Segment.remove {"_id":segmentId},(err)->
+		playerSocket=findPlayerSocketById(playerid);
+		playerSocket.emit('SERVER_EVENT_DELETE_SEGMENT',{segment:{delete:[segmentId]}})
+
+
+		
+
+		
 
 
 
