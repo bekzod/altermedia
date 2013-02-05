@@ -91,7 +91,7 @@ syncPlayer=(socket,player,cb)->
 
 			playerSegmentID=player.resources.segments
 			serverSegmentID=_.map res,(seg)-> seg._id.toString();
-
+			console.log serverSegmentID
 			intersectionID=_.intersection playerSegmentID,serverSegmentID
 			deleteSegmentsID=_.difference serverSegmentID,intersectionID
 			downloadSegmentsID=_.difference serverSegmentID,intersectionID
@@ -111,8 +111,8 @@ syncPlayer=(socket,player,cb)->
 
 
 findPlayerSocketById=(playerId)->
-	sockets=io.of('/player').clients()
-	_.find sockets,(socks)->socks.player?.id is playerId
+	playerSockets=io.of('/player').clients()
+	_.find playerSockets,(socks)->socks.player?.id is playerId
 
 
 addSegmentsToPlayer=(playerid,segmentsData,cb)->
@@ -148,16 +148,17 @@ addSegmentsToPlayer=(playerid,segmentsData,cb)->
 			cb&&cb(null)
 		else
 			playerModel=res[0];
-			playerModel.segments.$pushAll(segmentModels)
+			for seg in segmentModels
+				playerModel.segments.push seg.id
 			playerModel.save (err)-> cb&&cb(err) if err
 
 
-
-removeSegmentsFromPlayer=(playerid,segmentId,cb)->
-	
-	Segment.remove {"_id":segmentId},(err)->
+deleteSegmentsFromPlayer=(playerid,segmentIds,cb)->
+	Segment.remove {"_id":{$in:segmentIds}},(err)->
+		return cb&&cb(err) if err
 		playerSocket=findPlayerSocketById(playerid);
-		playerSocket.emit('SERVER_EVENT_DELETE_SEGMENT',{segment:{delete:[segmentId]}})
+		playerSocket&&playerSocket.emit('SERVER_EVENT_DELETE_SEGMENT',{segment:{delete:segmentIds}});
+		cb&&cb(null)
 
 
 		
