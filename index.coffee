@@ -125,13 +125,11 @@ addSegmentsToPlayer=(playerid,segmentsData,cb)->
 				Player.findById playerid,callback
 
 		(callback)->
-			creationArray=_.map segmentsData,(segData)->
-					(callback)->
-						newseg=new Segment segData 
-						leanSeg=_.omit newseg.toJSON(),['_id','__v','endDate']
-						newseg.save (err)->callback(err,leanSeg)
-			
-			async.parallel creationArray,callback
+			async.map segmentsData,(segData,fn)->
+				newseg=new Segment segData 
+				leanSeg=_.omit newseg.toJSON(),['_id','__v','endDate']
+				newseg.save (err)->fn(err,leanSeg)
+			,callback
 
 	],(err,res)->
 		return cb&&cb(err) if err
