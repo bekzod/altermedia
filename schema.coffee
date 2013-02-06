@@ -1,4 +1,4 @@
-module.exports=(Schema,db)->
+module.exports=(Schema,db,async)->
 	ObjectId =Schema.Types.ObjectId
 	
 
@@ -30,6 +30,7 @@ module.exports=(Schema,db)->
 		totalDuration:Number
 		playDuration:Number
 		startDate:Number
+		endDate:Number
 		startOffset:Number
 		transtions:
 			showTranstion:{type:ObjectId,ref:'Transtion'}
@@ -55,33 +56,59 @@ module.exports=(Schema,db)->
 		content:[{type:ObjectId,ref:'Content',index:{unique:true,dropDups:true}}]
 
 
+	player.methods.getSegmentsWhichStillPlaying=(cb)->
+		now=Date.now()
+		self=@
+		db.model('Segment').find
+			'_id': { $in:self.segments}
+			'endDate': { $gte:Date.now()} 
+			,cb
+
 	player.methods.removeSegmentAndSave=(segmentId,cb)->
-		db.model('Segment').remove {_id:segmentId} 
+		self=@
+		Segment=db.model 'Segment' 
 		@segments.remove(segmentId)
-		@save cb
+		
+		async.parallel [
+			(callback)->Segment.remove {_id:segmentId},callback 
+			(callback)->self.save callback
+		],cb
 
 
-	player.methods.removeSegmentsAndSave=(segmentIds,cb)->
-		db.model('Segment').remove {_id:{$in:segmentId}} 
+	player.methods.removeSegmentsAndSave=(segmentIds,cb)=>
+		self=@
+		Segment=db.model 'Segment' 
 		@segments.remove(segmentId)
-		@save cb
+		
+		async.parallel [
+			(callback)->db.model('Segment').remove {_id:{$in:segmentId}},callback 
+			(callback)->self.save callback
+		],cb
 
 
 	player.methods.addSegmentAndSave=(prop,cb)->
-		Segment=db.model('Segment')
-		newseg=new Segment(props) 
-		@segments.push(segment._id)
-		newseg.save();
-		@save cb
+		self=@
+		Segment=db.model 'Segment' 
+		
+		newseg=new Segment prop 
+		@segments.push newseg._id
+		
+		async.parallel [
+			(callback)->newseg.save callback
+			(callback)->self.save callback
+		],cb
 
 
 	player.methods.addSegmentsAndSave=(props,cb)->
-		Segment=db.model('Segment')
-		for prop in props
-			newseg=new Segment(props) 
-			@segments.push(segment._id)
-			newseg.save();
-		@save cb
+		self=@
+		Segment=db.model 'Segment' 
+		
+		async.map props,(prop,callback)->
+			newseg=new Segment prop 
+			@segments.push segment._id 
+			newseg.save callback
+		,(err,res)->
+			self.save cb&&cb err,res
 
 
 

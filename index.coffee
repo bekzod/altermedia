@@ -2,7 +2,6 @@ express = require 'express'
 path= require 'path'
 async= require 'async'
 mongoose = require('mongoose')
-schemas = require('./schema.js')
 _ = require 'underscore'
 
 app = express()
@@ -14,8 +13,9 @@ server.listen(process.env.PORT or 3000)
 # 
 # Database connection
 #
-ObjectId = mongoose.Schema.Types.ObjectId;
-db = mongoose.createConnection(process.env.DATABASE);       
+db = mongoose.createConnection(process.env.DATABASE)       
+sc = require('./schema.js')(mongoose.Schema,db,async)
+
 db.on 'error',(err)->console.log err 
 db.once 'open',->
 	createDummyData();
@@ -24,10 +24,10 @@ db.once 'open',->
 # 
 # Database tables
 # 
-Transition= db.model("Transition",schemas.transtion)
-Segment= db.model("Segment",schemas.segment)
-Content= db.model("Content",schemas.content)
-Player= db.model("Player",schemas.player)
+Transition = sc.Transition
+Segment    = sc.Segment
+Content    = sc.Content
+Player     = sc.Player
 
 
 # 
@@ -69,10 +69,12 @@ io.of('/player').on 'connection',(socket)->
 		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
 
 		Player.findById handShakeData.id,(err,res)->
-			if(!err)
+			if(!err&&res)
 				socket.player=res
-				syncPlayer(socket,handShakeData,callback);
-				addSegmentsToPlayer(handShakeData.id,[{}])
+				res.removeSegmentAndSave("5112927728be6f26f1000001");
+				# console.log res.save();
+				# res.save();
+				syncPlayer(handShakeData,res,callback);
 			else 
 				socket.disconnect();
 
@@ -80,32 +82,27 @@ io.of('/player').on 'connection',(socket)->
 
 
 
-syncPlayer=(socket,player,cb)->
-	now=Date.now()
+syncPlayer=(remotePlayer,serverPlayer,cb)->
+	serverPlayer.getSegmentsWhichStillPlaying (err,res)->
+		return cb&&cb(err) if err
 
-	Segment.find
-		'_id': { $in:socket.player.segments}
-		'endDate': { $gte:now} 
-		,(err,res)->
-			return cb&&cb(err) if err
+		playerSegmentID=remotePlayer.resources.segments
+		serverSegmentID=_.map res,(seg)-> seg._id.toString();
 
-			playerSegmentID=player.resources.segments
-			serverSegmentID=_.map res,(seg)-> seg._id.toString();
-			console.log serverSegmentID
-			intersectionID=_.intersection playerSegmentID,serverSegmentID
-			deleteSegmentsID=_.difference serverSegmentID,intersectionID
-			downloadSegmentsID=_.difference serverSegmentID,intersectionID
-			
-			load=new Array(downloadSegmentsID.length)
+		intersectionID=_.intersection playerSegmentID,serverSegmentID
+		deleteSegmentsID=_.difference serverSegmentID,intersectionID
+		downloadSegmentsID=_.difference serverSegmentID,intersectionID
+		
+		load=new Array(downloadSegmentsID.length)
 
-			for seg in res
-				if _.contains(downloadSegmentsID,seg._id)
-					leanSeg=_.omit(seg.toJSON(),['_id','__v','endDate'])
-					load[load.length]=leanSeg;
-				else if downloadSegmentsID.length is 0
-					return
-			
-			cb {segments:{"delete":deleteSegmentsID,"load":load}}
+		for seg in res
+			if _.contains(downloadSegmentsID,seg._id)
+				leanSeg=_.omit(seg.toJSON(),['_id','__v','endDate'])
+				load[load.length]=leanSeg;
+			else if downloadSegmentsID.length is 0
+				return
+
+		cb&&cb {segments:{"delete":deleteSegmentsID,"load":load}}
 
 
 
@@ -115,53 +112,10 @@ findPlayerSocketById=(playerId)->
 	_.find playerSockets,(socks)->socks.player?.id is playerId
 
 
-addSegmentsToPlayer=(playerid,segmentsData,cb)->
-	async.parallel [
-		(callback)->
-			playerSocket=findPlayerSocketById(playerid);
-			if playerSocket and playerSocket.player
-				callback(null,playerSocket.player,playerSocket)
-			else 
-				Player.findById playerid,callback
-
-		(callback)->
-			async.map segmentsData,(segData,fn)->
-				newseg=new Segment segData 
-				leanSeg=_.omit newseg.toJSON(),['_id','__v','endDate']
-				newseg.save (err)->fn(err,leanSeg)
-			,callback
-
-	],(err,res)->
-		return cb&&cb(err) if err
-
-		segmentModels=res[1]
-		if _.isArray(res[0])
-			playerModel=res[0][0]
-			playerSocket=res[0][1]
-
-			for seg in segmentModels
-				playerModel.segments.push seg.id
-			
-			playerModel.save (err)->
-				return cb&&cb(err) if err
-				playerSocket.emit 'SERVER_EVENT_ADD_SEGMENT',segmentModels
-			cb&&cb(null)
-		else
-			playerModel=res[0];
-			for seg in segmentModels
-				playerModel.segments.push seg.id
-			playerModel.save (err)-> cb&&cb(err) if err
 
 
-deleteSegmentsFromPlayer=(playerid,segmentIds,cb)->
-	Segment.remove {"_id":{$in:segmentIds}},(err)->
-		return cb&&cb(err) if err
-		playerSocket=findPlayerSocketById(playerid);
-		playerSocket&&playerSocket.emit('SERVER_EVENT_DELETE_SEGMENT',{segment:{delete:segmentIds}});
-		cb&&cb(null)
 
 
-		
 
 		
 
@@ -194,7 +148,6 @@ createDummyData=()->
 	# p=new Player
 	# 	name:"firstplayer"
 	# 	description:"firstplayer"
-	# 	segments:[seg]
 
 	# p.save();
 
