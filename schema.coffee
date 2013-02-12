@@ -45,7 +45,7 @@ segment=new Schema
 	,
 		toJSON:{getters:true,virtual: true,_id:false}
 
-mongoose.model('Segment',segment)
+mongoose.model "Segment",transition 
 
 
 # 
@@ -63,6 +63,8 @@ player=new Schema
 
 player.methods.getSegmentsWhichStillPlaying=(cb)->
 	self=@
+	Segment=mongoose.model('Segment')
+
 	Segment.find
 		'_id': { $in:self.segments}
 		'endDate': { $gte:Date.now()} 
@@ -71,6 +73,8 @@ player.methods.getSegmentsWhichStillPlaying=(cb)->
 
 player.methods.removeSegmentAndSave=(segmentId,cb)->
 	self = @
+	Segment=mongoose.model('Segment')
+
 	@segments.remove(segmentId)
 	@markModified('segments')
 
@@ -82,6 +86,8 @@ player.methods.removeSegmentAndSave=(segmentId,cb)->
 
 player.methods.removeSegmentsAndSave=(segmentIds,cb)=>
 	self=@
+	Segment=mongoose.model('Segment')
+
 	@segments.remove(segmentId)
 	
 	db.model('Segment').remove {_id:{$in:segmentId}},(err,res)-> 
@@ -90,6 +96,8 @@ player.methods.removeSegmentsAndSave=(segmentIds,cb)=>
 
 player.methods.addSegmentAndSave=(prop,cb)->
 	self=@
+	Segment=mongoose.model('Segment')
+
 	newseg=new Segment prop 
 	@segments.push newseg._id
 
@@ -103,6 +111,8 @@ player.methods.addSegmentAndSave=(prop,cb)->
 
 player.methods.addSegmentsAndSave=(props,cb)->
 	self=@
+	Segment=mongoose.model('Segment')
+
 	async.map props,(prop,callback)->
 		newseg=new Segment prop 
 		self.segments.push newseg._id
@@ -112,6 +122,9 @@ player.methods.addSegmentsAndSave=(props,cb)->
 			cb&&cb(err,res)
 
 mongoose.model('Player',player)
+
+
+module.exports=mongoose.createConnection process.env.DATABASE
 
 
 
