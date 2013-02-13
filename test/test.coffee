@@ -8,9 +8,6 @@ Segment    = con.model 'Segment'
 Content    = con.model 'Content'
 Player     = con.model 'Player'
 
-segmentProps=
-	startDate:(Date.now()+1000)
-
 
 describe "Model Test", ->
 
@@ -18,53 +15,55 @@ describe "Model Test", ->
 		player=null
 
 		beforeEach (done)->
-			Player.remove {},(err)->
-				throw err if err 
-				player=new Player({})
-				player.save done
+			async.series [
+				(cb)->Player.remove {},cb
+				(cb)->Segment.remove {},cb
+				],(err,res)->
+					player=new Player {name:"bekzod"} 
+					player.save done
+					
 
-		it 'addSegmentAndSave', ->
+		it 'addSegmentAndSave', (done)->
 			player.addSegmentAndSave {},(err,res)->
-				player.segments.should.have.length 1
+				throw err if err 
+				player.segments.should.have.lengthOf 1
 				player.segments.should.include res[0][0]._id
+				done()
 
 
-		it 'removeSegmentAndSave', ->
+		it 'removeSegmentAndSave',(done)->
 			async.series [
 				(callback)->player.addSegmentAndSave {},callback
 				(callback)->player.removeSegmentAndSave player.segments[0],callback
 				(callback)->Segment.find callback
 			],(err,res)->
-				console.log player
+				throw err if err 
 				player.segments.should.be.empty
 				res[2].should.be.empty
+				done()
 
 
-	# it 'addSegmentsAndSave', ->
-	# 	console.log player.segments
-	# # 	props=new Array(20)
-	# 	props[i]=segmentProps for i in [0...props.length] 
-	# 	player.addSegmentsAndSave props,(err,res)->
-	# 		resids=res.map (item)-> item._id
-	# 		for i in [0...props.length]
-	# 			console.log player.segments[i],resids[i]
-	# 			# player.segments[i].should.equal resids[i]
-
-				
+		it 'addSegmentsAndSave', (done)->
+			player.addSegmentsAndSave [{},{},{}],(err,res)->
+				throw err if err 
+				player.segments.should.have.lengthOf 3
+				done();
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+		it 'removeSegmentsAndSave',(done)->
+			async.series [
+				(callback)->player.addSegmentsAndSave [{},{},{}],callback
+				(callback)->
+					segs=player.segments.map (id)-> id
+					player.removeSegmentsAndSave segs,callback
+				(callback)->Segment.find callback
+			],(err,res)->
+				throw err if err
+				# console.log player.segments
+				# player.segments.should.be.empty
+				# res[2].should.be.empty
+				done()
+					
 
 
 
@@ -72,4 +71,18 @@ describe "Model Test", ->
 
 
 
-			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		# 	
