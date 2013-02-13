@@ -9,7 +9,7 @@ Content    = con.model 'Content'
 Player     = con.model 'Player'
 
 
-describe "Model Test", ->
+describe "Schema", ->
 
 	describe "Player Model",->
 		player=null
@@ -62,4 +62,22 @@ describe "Model Test", ->
 				player.segments.should.be.empty
 				res[2].should.be.empty
 				done()
+
+		it 'getSegmentsWhichStillPlaying',(done)->
+			notPlayingTime=Date.now()-5000
+			stillPlayingTime=Date.now()+5000
+
+			segs=[{endDate:notPlayingTime},{endDate:stillPlayingTime}]
+
+			async.series [
+				(callback)->player.addSegmentsAndSave segs,callback
+				(callback)->player.getSegmentsWhichStillPlaying callback
+			],(err,res)->
+				playingSeg=res[1][0]
+				playingSeg.endDate.should.be.equal(stillPlayingTime)
+				done()
+
+		
+
+
 					
