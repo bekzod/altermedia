@@ -1,3 +1,5 @@
 --require should
 -R spec
 --ui bdd
+--slow 300
+--timeout 3000
