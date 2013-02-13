@@ -13,21 +13,16 @@ server.listen(process.env.PORT or 3000)
 # 
 # Database connection
 #
-sc=require('./schema.js')
-con = mongoose.createConnection(process.env.DATABASE)       
+con = require('./schema.js')(process.env.DATABASE)
 
-con.on 'error',(err)->console.log err 
-con.once 'open',->
-	createDummyData();
-	console.log "mangoose connected" 
 
 # 
 # Database tables
 # 
-Transition = sc.Transition
-Segment    = sc.Segment
-Content    = sc.Content
-Player     = sc.Player
+Transition = con.model 'Transition'
+Segment    = con.model 'Segment'
+Content    = con.model 'Content'
+Player     = con.model 'Player'
 
 
 # 
@@ -43,7 +38,6 @@ app.configure "production",->
 	app.use(express.static(path.join(__dirname,"static")));
 	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-
 
 # 
 # socket.io configuration 
@@ -151,10 +145,9 @@ createDummyData=()->
 	p=new Player
 		name:"firstplayer"
 		description:"firstplayer"
-	p.save (err)->
-		console.log err
+	p.save()
 
-
+createDummyData()
 
 app.get '/',(req,res)->
 	res.redirect('/index.html')
