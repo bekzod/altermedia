@@ -59,30 +59,7 @@ describe "Model Test", ->
 				(callback)->Segment.find callback
 			],(err,res)->
 				throw err if err
-				# console.log player.segments
-				# player.segments.should.be.empty
-				# res[2].should.be.empty
+				player.segments.should.be.empty
+				res[2].should.be.empty
 				done()
 					
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		# 	
