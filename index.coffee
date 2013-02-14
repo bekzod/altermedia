@@ -76,25 +76,18 @@ io.of('/player').on 'connection',(socket)->
 
 
 
-
 syncPlayer=(remotePlayer,serverPlayer,cb)->
 	serverPlayer.getSegmentsWhichStillPlaying (err,res)->
 		return cb&&cb(err) if err
 
-		serverSegmentID=_.map res,(seg)-> seg._id.toString();
+		serverSegmentID=_.map res,(seg)-> seg._id
 		playerSegmentID=remotePlayer.resources.segments
 
-		syncInfo=syncer.sync serverSegmentID,playerSegmentID
-
-		load=new Array(downloadSegmentsID.length)
-
-		for seg in res
-			if _.contains(downloadSegmentsID,seg._id)
-				leanSeg=_.omit(seg.toJSON(),['_id','__v','endDate'])
-				load[load.length]=leanSeg;
-
-		cb&&cb {segments:{"delete":deleteSegmentsID,"load":load}}
-
+		syncInfo=syncer.sync serverSegmentID,playerSegmentID		
+		load=syncInfo.add.map (id)->
+			_.find res,(seg)->seg._id is id
+		
+		cb&&cb {segments:{"delete":syncInfo.remove,"load":load}}
 
 
 
@@ -106,8 +99,6 @@ findPlayerSocketById=(playerId)->
 
 
 
-
-		
 
 
 
@@ -121,22 +112,22 @@ onPlayerFail=(data)->
 
 
 createDummyData=()->
-	seg=new Segment 
-		playDuration:10*1000
-		totalDuration:30*1000
-		startDate:Date.now()+60*60*1000
-		startOffset:0
-		transtions:null
-		content:'510eb80c443769ca4d000001'
-	seg.save()
+	# seg=new Segment 
+	# 	playDuration:10*1000
+	# 	totalDuration:30*1000
+	# 	startDate:Date.now()+60*60*1000
+	# 	startOffset:0
+	# 	transtions:null
+	# 	content:'510eb80c443769ca4d000001'
+	# seg.save()
 
 
-	p=new Player
-		name:"firstplayer"
-		description:"firstplayer"
-	p.save()
+	# p=new Player
+	# 	name:"firstplayer"
+	# 	description:"firstplayer"
+	# p.save()
 
-createDummyData()
+# createDummyData()
 
 
 app.get '/',(req,res)->
