@@ -101,8 +101,9 @@ exports = module.exports = (url)->
 
 
 	player.methods.removeSegmentsAndSave=(segmentIds,cb)->
-		self = this
+		self = @
 		Segment=connection.model 'Segment' 
+		
 		async.series [
 			(callback)->
 				segmentIds.forEach (id)->
@@ -113,7 +114,7 @@ exports = module.exports = (url)->
 
 
 	player.methods.addSegmentAndSave=(prop,cb)->
-		self=@
+		self = @
 		Segment=connection.model 'Segment' 
 
 		newseg=new Segment prop 
@@ -133,7 +134,7 @@ exports = module.exports = (url)->
 		async.series [
 			(callback)->
 				async.map props,(prop,fn)->
-					newseg=new Segment prop 
+					newseg=new Segment prop||{} 
 					self.segments.push newseg._id
 					newseg.save fn
 				,callback
