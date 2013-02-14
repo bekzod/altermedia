@@ -1,7 +1,7 @@
 {
   "name": "altermedia",
   "version": "0.0.0-2",
-  "description": "altermedia ==========",
+  "description": "README.md",
   "main": "index.coffee",
   "scripts": {
     "test": "make test",
