@@ -1,8 +1,10 @@
 express =  require 'express'
 path=      require 'path'
 async= 	   require 'async'
-mongoose = require 'mongoose' 
 _ =        require 'underscore'
+
+syncer= require './syncer'
+
 
 app = express()
 server = require('http').createServer(app)
@@ -39,16 +41,19 @@ app.configure "production",->
 	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 
+
+
+
 # 
 # socket.io configuration 
 # 
 io.configure "production",->
 	io.set 'log level',0
-	io.set('transports', [
+	io.set 'transports',[
 		'websocket'
 		'flashsocket'
 		'htmlfile'
-	]);
+	]
 
 
 
@@ -64,17 +69,6 @@ io.of('/player').on 'connection',(socket)->
 
 		Player.findById handShakeData.id,(err,res)->
 			if(!err&&res)
-				socket.player=res
-				prop={}
-				prop.totalDuration=1000*60*10
-				prop.playDuration=1000*60*10
-				prop.startDate=Date.now()+1000*60*60*60+Math.random()*1000*60
-				prop.startOffset=0
-				prop.endDate=prop.startDate+prop.playDuration
-				
-				res.addSegmentAndSave prop
-				# console.log res.save();
-				# res.save();
 				syncPlayer(handShakeData,res,callback);
 			else 
 				socket.disconnect();
@@ -87,13 +81,11 @@ syncPlayer=(remotePlayer,serverPlayer,cb)->
 	serverPlayer.getSegmentsWhichStillPlaying (err,res)->
 		return cb&&cb(err) if err
 
-		playerSegmentID=remotePlayer.resources.segments
 		serverSegmentID=_.map res,(seg)-> seg._id.toString();
+		playerSegmentID=remotePlayer.resources.segments
 
-		intersectionID=_.intersection playerSegmentID,serverSegmentID
-		deleteSegmentsID=_.difference serverSegmentID,intersectionID
-		downloadSegmentsID=_.difference serverSegmentID,intersectionID
-		
+		syncInfo=syncer.sync serverSegmentID,playerSegmentID
+
 		load=new Array(downloadSegmentsID.length)
 
 		for seg in res
@@ -111,9 +103,6 @@ findPlayerSocketById=(playerId)->
 	playerSockets=io.of('/player').clients()
 	_.find playerSockets,(socks)->
 		socks.player&&socks.player.id is playerId
-
-
-
 
 
 
@@ -149,9 +138,9 @@ createDummyData=()->
 
 createDummyData()
 
+
 app.get '/',(req,res)->
 	res.redirect('/index.html')
-
 
 # Segment Management API
 app.get '/segment/:playerid',(req,res)->
