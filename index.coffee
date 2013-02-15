@@ -17,7 +17,6 @@ server.listen(process.env.PORT or 3000)
 #
 con = require('./schema.js')(process.env.DATABASE)
 
-
 # 
 # Database tables
 # 
@@ -62,16 +61,14 @@ io.of('/admin').on 'connection',(socket)->
 
 io.of('/player').on 'connection',(socket)->
 	socket.on "CLIENT_EVENT_HANDSHAKE",(handShakeData,callback)->
-		
-		socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgress
-		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
-		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
-
+		# socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgresms
+		# socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
+		# socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
 		Player.findById handShakeData.id,(err,res)->
 			if(!err&&res)
-				syncPlayer(handShakeData,res,callback);
+				syncPlayer(handShakeData,res,callback)
 			else 
-				socket.disconnect();
+				socket.disconnect()
 
 
 
@@ -82,12 +79,20 @@ syncPlayer=(remotePlayer,serverPlayer,cb)->
 
 		serverSegmentID=_.map res,(seg)-> seg._id
 		playerSegmentID=remotePlayer.resources.segments
+ 
+		syncSegment=syncer.sync serverSegmentID,playerSegmentID		
+		addSegment=syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
 
-		syncInfo=syncer.sync serverSegmentID,playerSegmentID		
-		load=syncInfo.add.map (id)->
-			_.find res,(seg)->seg._id is id
+		serverContentID=_.map serverPlayer.contents,(el)-> el.toString()
+		playerContentID=remotePlayer.resources.content.concat remotePlayer.resources.downloads
+
+		syncContent=syncer.sync serverContentID,playerContentID
 		
-		cb&&cb {segments:{"delete":syncInfo.remove,"load":load}}
+		cb&&cb {
+			content:{"remove":syncContent.remove,"add":syncContent.add}
+			segments:{"remove":syncSegment.remove,"add":addSegment}
+		}
+
 
 
 
@@ -125,13 +130,15 @@ createDummyData=()->
 	# p=new Player
 	# 	name:"firstplayer"
 	# 	description:"firstplayer"
+	# 	contents: ['510eb80c443769ca4d000001','510eb84f7e4ae4454e000001','510eb8630d702c8c4e000001'] 
 	# p.save()
 
-# createDummyData()
+createDummyData()
 
 
 app.get '/',(req,res)->
 	res.redirect('/index.html')
+
 
 # Segment Management API
 app.get '/segment/:playerid',(req,res)->
