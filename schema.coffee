@@ -17,6 +17,7 @@ exports = module.exports = (url)->
 		contentId:Number
 		name:String
 		status:String
+		type:{type: String, enum: ['SWF', 'PHOTO', 'VIDEO']}
 		description:String
 
 	connection.model "Content",content
@@ -46,7 +47,7 @@ exports = module.exports = (url)->
 		# id:{type: String,index: {unique: true, dropDups: true}}
 		totalDuration:Number
 		playDuration:Number
-		startDate:Number
+		startDate:{type:Number,default:Date.now()}
 		endDate:Number
 		startOffset:Number
 		transtions:
@@ -58,8 +59,11 @@ exports = module.exports = (url)->
 		,
 			toJSON:{getters:true,virtual: true,_id:false}
 
-	connection.model "Segment",segment 
+	segment.pre 'save',(next)->
+		@endDate=@startDate+@playDuration
+		next()
 
+	connection.model "Segment",segment 
 
 
 
@@ -74,7 +78,7 @@ exports = module.exports = (url)->
 		description:String
 		lastSync:Date
 		segments:[{type:ObjectId,ref:'Segment',index:{unique:true,dropDups:true}}]
-		content:[{type:ObjectId,ref:'Content',index:{unique:true,dropDups:true}}]
+		contents:[{type:ObjectId,ref:'Content',index:{unique:true,dropDups:true}}]
 		,
 			toJSON:{getters:true,virtual: true,_id:false}
 
@@ -123,8 +127,7 @@ exports = module.exports = (url)->
 		async.series [
 			(callback)->newseg.save callback
 			(callback)->self.save callback
-		],(err,res)->
-			cb(err,res)
+		],cb
 
 
 	player.methods.addSegmentsAndSave=(props,cb)->
