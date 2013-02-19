@@ -91,24 +91,32 @@ io.of('/player').on 'connection',(socket)->
 
 
 syncPlayer=(remotePlayer,serverPlayer,cb)->
-	serverPlayer.getSegmentsWhichStillPlaying (err,res)->
-		return cb&&cb(err) if err
 
-		serverSegmentID=_.map res,(seg)-> seg._id
-		playerSegmentID=remotePlayer.resources.segments
- 
-		syncSegment=syncer.sync serverSegmentID,playerSegmentID		
-		addSegment=syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
+	async.parallel [
+		(callback)->
+			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
+				
+				serverSegmentID=_.map res,(seg)-> seg._id
+				playerSegmentID=remotePlayer.resources.segments
+		 
+				syncSegment=syncer.sync serverSegmentID,playerSegmentID		
+				addSegment=syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
 
-		serverContentID=_.map serverPlayer.contents,(el)-> el.toString()
-		playerContentID=remotePlayer.resources.content.concat remotePlayer.resources.downloads
+				callback null,{"remove":syncSegment.remove,"add":addSegment}
 
-		syncContent=syncer.sync serverContentID,playerContentID
-		
-		cb&&cb {
-			content:{"remove":syncContent.remove,"add":['dwadwadaw']}
-			segments:{"remove":syncSegment.remove,"add":addSegment}
-		}
+		(callback)->
+			serverContentID=_.map serverPlayer.contents,(el)-> el.toString()
+			playerContentID=remotePlayer.resources.content.concat remotePlayer.resources.downloads
+
+			syncContent=syncer.sync serverContentID,playerContentID
+			Content.find {'_id': { $in:syncContent.add}},(err,res)->
+				callback err,{"remove":syncContent.remove,"add":res}
+
+		],(err,res)->
+			cb {
+				segments:res[0]
+				content:res[1]
+			}
 
 
 
