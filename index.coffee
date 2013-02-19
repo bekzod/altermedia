@@ -55,20 +55,37 @@ io.configure "production",->
 	]
 
 
+eventHandler={}
+eventHandler.onPlayerProgress=(e)->
+	console.log e,"dawdaw"
+
+
+eventHandler.onPlayerComplete=(e)->
+	console.log e,"dawdaw"
+
+
+eventHandler.onPlayerFail=(e)->
+	console.log e,"dawdaw"
+
+
+
 
 io.of('/admin').on 'connection',(socket)->
 
 
 io.of('/player').on 'connection',(socket)->
-	socket.on "CLIENT_EVENT_HANDSHAKE",(handShakeData,callback)->
-		# socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",onPlayerProgresms
-		# socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",onPlayerComplete
-		# socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",onPlayerFail
+
+	socket.on "client_event_handshake",(handShakeData,callback)->
 		Player.findById handShakeData.id,(err,res)->
 			if(!err&&res)
+				socket.on "client_event_download_progress",eventHandler.onPlayerProgress
+				socket.on "client_event_download_complete",eventHandler.onPlayerComplete
+				socket.on "client_event_download_fail",eventHandler.onPlayerFail
 				syncPlayer(handShakeData,res,callback)
 			else 
 				socket.disconnect()
+
+
 
 
 
@@ -89,7 +106,7 @@ syncPlayer=(remotePlayer,serverPlayer,cb)->
 		syncContent=syncer.sync serverContentID,playerContentID
 		
 		cb&&cb {
-			content:{"remove":syncContent.remove,"add":syncContent.add}
+			content:{"remove":syncContent.remove,"add":['dwadwadaw']}
 			segments:{"remove":syncSegment.remove,"add":addSegment}
 		}
 
@@ -140,6 +157,20 @@ app.get '/',(req,res)->
 	res.redirect('/index.html')
 
 
+
+
+
+
+app.get 'contentinfo/:id',(req,res)->
+	contentid=req.params.id;
+	Content.findById contentid,(err,cont)->
+		res.send(cont.toJSON());
+
+
+
+
+
+
 # Segment Management API
 app.get '/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
@@ -147,6 +178,9 @@ app.get '/segment/:playerid',(req,res)->
 
 app.post '/segment',(req,res)->
 	res.send(req.body);
+
+
+
 
 
 app.listen('8080')
