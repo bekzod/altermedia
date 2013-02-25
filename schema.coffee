@@ -14,12 +14,14 @@ exports = module.exports = (url)->
 	# Content
 	# 
 	content = new Schema
-		contentId:Number
-		name:String
 		status:String
-		type:{type: String, enum: ['SWF', 'PHOTO', 'VIDEO']}
-		description:String
-
+		playDuration:{type:Number,default:-1}
+		size:Number
+		hashcode:String
+		type:{type: String, enum: ['MP3' ,'SWF', 'PHOTO', 'VIDEO']}
+		description:{
+			name:String
+		}
 	connection.model "Content",content
 
 
@@ -45,16 +47,14 @@ exports = module.exports = (url)->
 	# 
 	segment=new Schema
 		# id:{type: String,index: {unique: true, dropDups: true}}
-		totalDuration:Number
 		playDuration:Number
 		startDate:{type:Number,default:Date.now()}
 		endDate:Number
 		startOffset:Number
-		transtions:
-			showTranstion:{type:ObjectId,ref:'Transtion'}
-			hideTranstion:{type:ObjectId,ref:'Transtion'}
-			showAnimDuration:Number
-			hideAnimDuration:Number
+		showTranstion:{type:ObjectId,ref:'Transtion'}
+		hideTranstion:{type:ObjectId,ref:'Transtion'}
+		showAnimDuration:Number
+		hideAnimDuration:Number
 		content:{type:ObjectId,ref:'Content'}
 		,
 			toJSON:{getters:true,virtual: true,_id:false}
@@ -83,13 +83,13 @@ exports = module.exports = (url)->
 			toJSON:{getters:true,virtual: true,_id:false}
 
 
-	player.methods.getSegmentsWhichStillPlaying=(cb)->
+	player.methods.getSegmentToDate=(date,cb)->
 		self=@
 		Segment=connection.model('Segment')
 
 		Segment.find
 			'_id': { $in:self.segments}
-			'endDate': { $gte:Date.now()} 
+			'endDate': { $gte:date} 
 			,cb
 
 
@@ -98,7 +98,7 @@ exports = module.exports = (url)->
 		Segment=connection.model('Segment')
 
 		@segments.remove(segmentId)
-		async.series [
+		async.parallel [
 			(callback)->Segment.remove {_id:segmentId},callback 
 			(callback)->self.save callback
 		],cb
@@ -108,7 +108,7 @@ exports = module.exports = (url)->
 		self = @
 		Segment=connection.model 'Segment' 
 		
-		async.series [
+		async.parallel [
 			(callback)->
 				segmentIds.forEach (id)->
 					self.segments.remove id
@@ -124,7 +124,7 @@ exports = module.exports = (url)->
 		newseg=new Segment prop 
 		@segments.push newseg
 
-		async.series [
+		async.parallel [
 			(callback)->newseg.save callback
 			(callback)->self.save callback
 		],cb
