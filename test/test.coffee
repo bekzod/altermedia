@@ -63,15 +63,16 @@ describe "Schema", ->
 				res[2].should.be.empty
 				done()
 
-		it 'getSegmentsWhichStillPlaying',(done)->
-			notPlayingTime=Date.now()-5000
-			stillPlayingTime=Date.now()+5000
+		it 'getSegmentToDate',(done)->
+			now=Date.now()
+			notPlayingTime=now-5000
+			stillPlayingTime=now+5000
 
 			segs=[{endDate:notPlayingTime},{endDate:stillPlayingTime}]
 
 			async.series [
 				(callback)->player.addSegmentsAndSave segs,callback
-				(callback)->player.getSegmentsWhichStillPlaying callback
+				(callback)->player.getSegmentToDate now,callback
 			],(err,res)->
 				playingSeg=res[1][0]
 				playingSeg.endDate.should.be.equal(stillPlayingTime)
