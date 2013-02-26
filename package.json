@@ -19,7 +19,8 @@
     "socket.io": "~0.9.5",
     "underscore": "~1.4.3",
     "mongoose": "~3.5.5",
-    "async": "~0.2.1"
+    "async": "~0.2.5",
+    "validator": "~0.4.25"
   },
   "subdomain": "altermedia",
   "engines": {
