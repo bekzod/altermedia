@@ -77,7 +77,7 @@ io.of('/player').on 'connection',(socket)->
 
 	socket.on "client_event_handshake",(handShakeData,callback)->
 		Player.findById handShakeData.id,(err,res)->
-			if(!err&&res)
+			if !err&&res
 				socket.on "client_event_download_progress",eventHandler.onPlayerProgress
 				socket.on "client_event_download_complete",eventHandler.onPlayerComplete
 				socket.on "client_event_download_fail",eventHandler.onPlayerFail
@@ -88,13 +88,10 @@ io.of('/player').on 'connection',(socket)->
 
 
 
-
-
 syncPlayer=(remotePlayer,serverPlayer,cb)->
-
 	async.parallel [
 		(callback)->
-			serverPlayer.getSegmentToDate Date.now(),(err,res)->
+			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
 
 				serverSegmentID=_.map res,(seg)->String(seg._id)
 				playerSegmentID=remotePlayer.resources.segments
@@ -141,75 +138,47 @@ onPlayerFail=(data)->
 
 
 
-createDummyData=()->
-	# seg=new Segment 
-	# 	playDuration:10*1000
-	# 	totalDuration:30*1000
-	# 	startDate:Date.now()+60*60*1000
-	# 	startOffset:0
-	# 	transtions:null
-	# 	content:'510eb80c443769ca4d000001'
-	# seg.save()
-
-
-	# p=new Player
-	# 	name:"firstplayer"
-	# 	description:"firstplayer"
-	# 	contents: ['510eb80c443769ca4d000001','510eb84f7e4ae4454e000001','510eb8630d702c8c4e000001'] 
-	# p.save()
-
-	# Player.findById '511ebd6c04be79cf07000001',(err,player)->
-		# # player.contents=[]
-		# cont=new Content({
-		# 	type:'VIDEO'
-		# 	length:1000*60
-		# 	description:{
-		# 		name:'cool video'
-
-		# 	}
-		# })
-		# cont.save()
-		# player.contents.push(cont)
-		# player.save();
-
-createDummyData()
-
-
-app.get '/',(req,res)->
-	res.redirect('/index.html')
 
 
 
 
 
-app.get 'contentinfo/:id',(req,res)->
-	contentid=req.params.id;
-	Content.findById contentid,(err,cont)->
-		res.send(cont.toJSON());
 
 
 
+# Player Management API
 
-# Segment Management API
-
-
-# SEGMENT DELETE
-app.delete '/player/segment/:playerid/:segmentid',(req,res)->
+# GET ALL 
+app.get '/player/:playerid',(req,res)->
 	playerid = req.params.playerid
-	segmentid = req.params.segmentid
-
 	try
 		check(playerid,'player id').len(24)
-		check(segmentid,'segment id').len(24)
 	catch e
 		return res.send error:e
 
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
-		player.removeSegmentAndSave segmentid,(err,result)->
-			return res.send error:"internal error" if err
-			res.send result:result[0]
+		res.send player
 
+
+# ADD PLAYER
+app.post '/player',(req,res)->
+	try
+		check(req.body.name,'name').notEmpty();
+		check(req.body.description,'description').notEmpty();
+	catch e
+		return res.send error:e
+
+	player=new Player req.body
+	player.save (err,player)->
+		return res.send error:"internal error" if err
+		res.send result:player._id
+
+
+
+
+
+# Segment Management API
 
 
 # SEGMENT GET ALL
@@ -256,11 +225,22 @@ app.post '/player/segment/:playerid',(req,res)->
 			res.send result:result[0][0]
 
 
+# SEGMENT DELETE
+app.delete '/player/segment/:playerid/:segmentid',(req,res)->
+	playerid = req.params.playerid
+	segmentid = req.params.segmentid
 
+	try
+		check(playerid,'player id').len(24)
+		check(segmentid,'segment id').len(24)
+	catch e
+		return res.send error:e
 
-
-
-
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.removeSegmentAndSave segmentid,(err,result)->
+			return res.send error:"internal error" if err
+			res.send result:result[0]
 
 
 app.listen('8080')
