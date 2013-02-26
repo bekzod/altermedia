@@ -84,13 +84,13 @@ exports = module.exports = (url)->
 			toJSON:{getters:true,virtual: true,_id:false}
 
 
-	player.methods.getSegmentsToDate=(date,cb)->
+	player.methods.getSegmentsWhichStillPlaying=(cb)->
 		self=@
 		Segment=connection.model('Segment')
 
 		Segment.find
 			'_id': { $in:self.segments}
-			'endDate': { $gte:date} 
+			'endDate': { $gte:Date.now()} 
 			,cb
 
 
