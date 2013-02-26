@@ -191,21 +191,26 @@ app.get 'contentinfo/:id',(req,res)->
 
 
 # Segment Management API
+
+# SEGMENT GET ALL
 app.get '/player/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
+	
+	try
+		check(playerid,'player id').len(24)
+	catch e
+		return res.send error:e
 
-	async.waterfall [
-		(callback)->
-			Player.findById playerid,callback
-		(player,callback)->
-			player.getSegmentToDate 1,callback
-		(segments)->
-			res.send 
-					segments:segments
-	]
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.getSegmentsWhichStillPlaying (err,segments)->
+			return res.send error:"internal error" if err
+			res.send result:segments
 
 
 
+
+# SEGMENT ADD
 app.post '/player/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
 
@@ -223,7 +228,7 @@ app.post '/player/segment/:playerid',(req,res)->
 	    		check(item.playDuration,'transition item').isInt()	
 	catch e
 		return res.send error:e
-		
+
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
 		player.addSegmentAndSave req.body,(err,result)->
