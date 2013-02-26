@@ -192,6 +192,26 @@ app.get 'contentinfo/:id',(req,res)->
 
 # Segment Management API
 
+
+# SEGMENT DELETE
+app.delete '/player/segment/:playerid/:segmentid',(req,res)->
+	playerid = req.params.playerid
+	segmentid = req.params.segmentid
+
+	try
+		check(playerid,'player id').len(24)
+		check(segmentid,'segment id').len(24)
+	catch e
+		return res.send error:e
+
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.removeSegmentAndSave segmentid,(err,result)->
+			return res.send error:"internal error" if err
+			res.send result:result[0]
+
+
+
 # SEGMENT GET ALL
 app.get '/player/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
