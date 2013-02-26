@@ -2,6 +2,8 @@ express =  require 'express'
 path=      require 'path'
 async= 	   require 'async'
 _ =        require 'underscore'
+check =    require('validator').check
+sanitize = require('validator').sanitize
 
 syncer= require './syncer'
 
@@ -30,12 +32,10 @@ Player     = con.model 'Player'
 # App config
 # 
 app.configure ->
+	app.use express.methodOverride() 
+	app.use express.bodyParser() 
 	app.use app.router 
-	app.use express.bodyParser()
-	app.use express.methodOverride()
-
-app.configure "production",->
-	app.use express.cookieParser()
+	# app.use express.cookieParser()
 	app.use(express.static(path.join(__dirname,"static")));
 	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
 	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
@@ -57,15 +57,15 @@ io.configure "production",->
 
 eventHandler={}
 eventHandler.onPlayerProgress=(e)->
-	console.log e,"dawdaw"
+	# console.log e
 
 
 eventHandler.onPlayerComplete=(e)->
-	console.log e,"dawdaw"
+	# console.log e,"dawdaw"
 
 
 eventHandler.onPlayerFail=(e)->
-	console.log e,"dawdaw"
+	# console.log e,"dawdaw"
 
 
 
@@ -94,9 +94,9 @@ syncPlayer=(remotePlayer,serverPlayer,cb)->
 
 	async.parallel [
 		(callback)->
-			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
-				
-				serverSegmentID=_.map res,(seg)-> seg._id
+			serverPlayer.getSegmentToDate Date.now(),(err,res)->
+
+				serverSegmentID=_.map res,(seg)->String(seg._id)
 				playerSegmentID=remotePlayer.resources.segments
 		 
 				syncSegment=syncer.sync serverSegmentID,playerSegmentID		
@@ -105,8 +105,8 @@ syncPlayer=(remotePlayer,serverPlayer,cb)->
 				callback null,{"remove":syncSegment.remove,"add":addSegment}
 
 		(callback)->
-			serverContentID=_.map serverPlayer.contents,(el)-> el.toString()
-			playerContentID=remotePlayer.resources.content.concat remotePlayer.resources.downloads
+			serverContentID=_.map serverPlayer.contents,(el)-> String(el)
+			playerContentID=remotePlayer.resources.contents 
 
 			syncContent=syncer.sync serverContentID,playerContentID
 			Content.find {'_id': { $in:syncContent.add}},(err,res)->
@@ -158,12 +158,25 @@ createDummyData=()->
 	# 	contents: ['510eb80c443769ca4d000001','510eb84f7e4ae4454e000001','510eb8630d702c8c4e000001'] 
 	# p.save()
 
+	# Player.findById '511ebd6c04be79cf07000001',(err,player)->
+		# # player.contents=[]
+		# cont=new Content({
+		# 	type:'VIDEO'
+		# 	length:1000*60
+		# 	description:{
+		# 		name:'cool video'
+
+		# 	}
+		# })
+		# cont.save()
+		# player.contents.push(cont)
+		# player.save();
+
 createDummyData()
 
 
 app.get '/',(req,res)->
 	res.redirect('/index.html')
-
 
 
 
@@ -177,15 +190,49 @@ app.get 'contentinfo/:id',(req,res)->
 
 
 
-
-
 # Segment Management API
-app.get '/segment/:playerid',(req,res)->
+app.get '/player/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
-	res.send(req.params.playerid)
 
-app.post '/segment',(req,res)->
-	res.send(req.body);
+	async.waterfall [
+		(callback)->
+			Player.findById playerid,callback
+		(player,callback)->
+			player.getSegmentToDate 1,callback
+		(segments)->
+			res.send 
+					segments:segments
+	]
+
+
+
+app.post '/player/segment/:playerid',(req,res)->
+	playerid = req.params.playerid
+
+	try
+		check(playerid,'player id').len(24)
+		check(req.body.content,"content").notEmpty().len(24)
+		check(req.body.playDuration,'playDuration').isInt()
+		check(req.body.startDate,'playDuration').isAfter()
+		check(req.body.startOffset,'startOffset').isInt()
+
+		if check(req.body.transitions,'transitions').isArray()
+	    	for item in req.body.transitions
+	    		check(item.tranistion,'transition item').notEmpty().len(24)
+	    		check(item.showAt,'transition item').isInt()
+	    		check(item.playDuration,'transition item').isInt()	
+	catch e
+		return res.send error:e
+		
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.addSegmentAndSave req.body,(err,result)->
+			return res.send error:"internal error" if err
+			res.send result:result[0][0]
+
+
+
+
 
 
 
