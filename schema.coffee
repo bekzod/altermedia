@@ -51,10 +51,11 @@ exports = module.exports = (url)->
 		startDate:{type:Number,default:Date.now()}
 		endDate:Number
 		startOffset:Number
-		showTranstion:{type:ObjectId,ref:'Transtion'}
-		hideTranstion:{type:ObjectId,ref:'Transtion'}
-		showAnimDuration:Number
-		hideAnimDuration:Number
+		transitions:[{
+			tranistion:{type:ObjectId,ref:'Transtion'}
+			showAt:Number
+			playDuration:Number
+		}]
 		content:{type:ObjectId,ref:'Content'}
 		,
 			toJSON:{getters:true,virtual: true,_id:false}
@@ -83,7 +84,7 @@ exports = module.exports = (url)->
 			toJSON:{getters:true,virtual: true,_id:false}
 
 
-	player.methods.getSegmentToDate=(date,cb)->
+	player.methods.getSegmentsToDate=(date,cb)->
 		self=@
 		Segment=connection.model('Segment')
 
