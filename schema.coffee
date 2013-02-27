@@ -62,6 +62,8 @@ exports = module.exports = (url)->
 
 	segment.pre 'save',(next)->
 		@endDate=@startDate+@playDuration
+		# @path('createdAt').expires @endDate-Date.now()
+		@createdAt={type: Date, expires:10}
 		next()
 
 	connection.model "Segment",segment 
@@ -80,9 +82,13 @@ exports = module.exports = (url)->
 		lastSync:Date
 		segments:[{type:ObjectId,ref:'Segment',index:{unique:true,dropDups:true}}]
 		contents:[{type:ObjectId,ref:'Content',index:{unique:true,dropDups:true}}]
-		,
-			toJSON:{getters:true,virtual: true,_id:false}
 
+
+	player.post 'remove',(next)->
+		Segment=connection.model('Segment')
+		async.each @segments,(segid,cb)->
+			Segment.findById(segid).remove cb
+		,next
 
 	player.methods.getSegmentsWhichStillPlaying=(cb)->
 		self=@
