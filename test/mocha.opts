@@ -3,3 +3,4 @@
 --ui bdd
 --slow 300
 --timeout 3000
+--compilers coffee:coffee-script
