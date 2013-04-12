@@ -1,7 +1,7 @@
 mongoose = require 'mongoose'
 async = require 'async'
 
-con=require('../schema.js')(process.env.DATABASE)
+con=require('../lib/schema.js')(process.env.DATABASE)
 
 
 Segment    = con.model 'Segment'
