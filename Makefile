@@ -5,12 +5,14 @@ LOCAL_DATABASE=mongodb://localhost:27017/local
 test:
 	@DATABASE=$(REMOTE_DATABASE) NODE_ENV=test ./node_modules/.bin/mocha \
 	--reporter $(REPORTER) \
+	--compilers coffee:coffee-script
 
 test-w:
 	@DATABASE=$(REMOTE_DATABASE) NODE_ENV=test ./node_modules/.bin/mocha \
 	--reporter $(REPORTER) \
 	--growl \
-	--watch
+	--watch \
+	--compilers coffee:coffee-script
 
 
 generate-js: remove-js
@@ -25,10 +27,12 @@ remove-js:
 test-local:
 	@DATABASE=$(LOCAL_DATABASE) NODE_ENV=test  ./node_modules/.bin/mocha \
 	--reporter $(REPORTER) \
+	--compilers coffee:coffee-script
 
 test-local-w:
 	@DATABASE=$(LOCAL_DATABASE) NODE_ENV=test  ./node_modules/.bin/mocha \
 	--reporter $(REPORTER) \
-	--watch
+	--watch \
+	--compilers coffee:coffee-script
 
 .PHONY: test test-w
