@@ -34,10 +34,7 @@ app.configure ->
 	app.use express.methodOverride() 
 	app.use express.bodyParser() 
 	app.use app.router 
-	# app.use express.cookieParser()
 	app.use(express.static(path.join(__dirname,"static")));
-	# app.use(express.session({secret: 'supersecretkeygoeshere'}));
-	# app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 
 
 
@@ -92,19 +89,19 @@ syncPlayer = (remotePlayer,serverPlayer,cb)->
 		(callback)->
 			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
 
-				serverSegmentID=_.map res,(seg)->String(seg._id)
-				playerSegmentID=remotePlayer.resources.segments
+				serverSegmentID = _.map res,(seg)->String(seg._id)
+				playerSegmentID = remotePlayer.resources.segments
 		 
-				syncSegment=syncer.sync serverSegmentID,playerSegmentID		
-				addSegment=syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
+				syncSegment = syncer.sync serverSegmentID,playerSegmentID		
+				addSegment  = syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
 
 				callback null,{"remove":syncSegment.remove,"add":addSegment}
 
 		(callback)->
-			serverContentID=_.map serverPlayer.contents,(el)-> String(el)
-			playerContentID=remotePlayer.resources.contents 
+			serverContentID = _.map serverPlayer.contents,(el)-> String(el)
+			playerContentID = remotePlayer.resources.contents 
 
-			syncContent=syncer.sync serverContentID,playerContentID
+			syncContent = syncer.sync serverContentID,playerContentID
 			Content.find {'_id': { $in:syncContent.add}},(err,res)->
 				callback err,{"remove":syncContent.remove,"add":res}
 
@@ -122,9 +119,6 @@ findPlayerSocketById = (playerId)->
 	playerSockets = io.of('/player').clients()
 	_.find playerSockets,(socks)->
 		socks.player&&socks.player.id is playerId
-
-
-
 
 
 
