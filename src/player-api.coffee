@@ -1,8 +1,8 @@
 
-playerApi=exports
+playerApi = exports  = module.exports
 
 
-playerApi.get=(req,res)->
+playerApi.get = (req,res)->
 	playerid = req.params.playerid
 	try
 		check(playerid,'player id').len(24)
@@ -15,8 +15,7 @@ playerApi.get=(req,res)->
 
 
 
-playerApi.post=(req,res)->
-	console.log "daw"
+playerApi.post = (req,res)->
 	try
 		check(req.body.name,'name').notEmpty();
 		check(req.body.description,'description').notEmpty();
