@@ -1,30 +1,17 @@
-express =  require 'express'
-path=      require 'path'
-async= 	   require 'async'
-_ =        require 'underscore'
-check =    require('validator').check
+_        = require 'underscore'
+path     = require 'path'
+async    = require 'async'
+express  = require 'express'
+check    = require('validator').check
 sanitize = require('validator').sanitize
 
-syncer= require './syncer'
+syncer   = require './syncer'
 
+app      = express()
+server   = require('http').createServer(app)
+io       = require('socket.io').listen(server)
 
-app = express()
-server = require('http').createServer(app)
-io = require('socket.io').listen(server)
-server.listen(process.env.PORT or 3000)
-
-
-# 
-# Database connection
-#
-con = require('./schema.js')(process.env.DATABASE)
-
-# 
-# Database tables
-# 
-Transition = con.model 'Transition'
-Segment    = con.model 'Segment'
-Player     = con.model 'Player'
+server.listen process.env.PORT || 3000
 
 
 # 
@@ -36,9 +23,6 @@ app.configure ->
 	app.use app.router 
 	app.use(express.static(path.join(__dirname,"static")));
 
-
-
-
 # 
 # socket.io configuration 
 # 
@@ -49,6 +33,22 @@ io.configure "production",->
 		'flashsocket'
 		'htmlfile'
 	]
+
+# 
+# Database connection
+#
+con = require('./schema')(process.env.DATABASE)
+
+# 
+# Database tables
+# 
+Transition = con.model 'Transition'
+Segment    = con.model 'Segment'
+Player     = con.model 'Player'
+Content    = con.model 'Content'
+
+
+
 
 
 eventHandler={}
@@ -71,9 +71,9 @@ io.of('/admin').on 'connection',(socket)->
 
 io.of('/player').on 'connection',(socket)->
 
-	socket.on "client_event_handshake",(handShakeData,callback)->
+	socket.on "CLIENT_EVENT_HANDSHAKE",(handShakeData,callback)->
 		Player.findById handShakeData.id,(err,res)->
-			if !err&&res
+			if !err && res
 				socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",eventHandler.onPlayerProgress
 				socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",eventHandler.onPlayerComplete
 				socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",eventHandler.onPlayerFail
@@ -88,6 +88,7 @@ syncPlayer = (remotePlayer,serverPlayer,cb)->
 	async.parallel [
 		(callback)->
 			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
+				callback(err,res) if err||!res
 
 				serverSegmentID = _.map res,(seg)->String(seg._id)
 				playerSegmentID = remotePlayer.resources.segments
@@ -95,21 +96,21 @@ syncPlayer = (remotePlayer,serverPlayer,cb)->
 				syncSegment = syncer.sync serverSegmentID,playerSegmentID		
 				addSegment  = syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
 
-				callback null,{"remove":syncSegment.remove,"add":addSegment}
+				callback null,{remove:syncSegment.remove,add:addSegment}
 
 		(callback)->
-			serverContentID = _.map serverPlayer.contents,(el)-> String(el)
+			serverContentID = _.map serverPlayer.contents,(el)-> el+""
 			playerContentID = remotePlayer.resources.contents 
 
 			syncContent = syncer.sync serverContentID,playerContentID
 			Content.find {'_id': { $in:syncContent.add}},(err,res)->
-				callback err,{"remove":syncContent.remove,"add":res}
+				callback err,{ remove:syncContent.remove, add:res }
 
 		],(err,res)->
-			cb {
-				segments:res[0]
-				content:res[1]
-			}
+			cb(
+				segments : res[0]
+				content  : res[1]
+			 )
 
 
 
@@ -119,7 +120,6 @@ findPlayerSocketById = (playerId)->
 	playerSockets = io.of('/player').clients()
 	_.find playerSockets,(socks)->
 		socks.player&&socks.player.id is playerId
-
 
 
 
@@ -164,6 +164,9 @@ app.get '/player/:playerid',(req,res)->
 		res.send player
 
 
+
+
+
 # ADD PLAYER
 app.post '/player',(req,res)->
 	try
@@ -180,9 +183,7 @@ app.post '/player',(req,res)->
 
 
 
-
 # Segment Management API
-
 
 # SEGMENT GET ALL
 app.get '/player/segment/:playerid',(req,res)->
@@ -231,9 +232,11 @@ app.post '/player/segment/:playerid',(req,res)->
 			res.send result:segmentData
 
 
+
+
 # SEGMENT DELETE
 app.delete '/player/segment/:playerid/:segmentid',(req,res)->
-	playerid = req.params.playerid
+	playerid  = req.params.playerid
 	segmentid = req.params.segmentid
 
 	try
@@ -251,6 +254,59 @@ app.delete '/player/segment/:playerid/:segmentid',(req,res)->
 			res.send result:result[0]
 
 
+
+# Content Management API
+app.get '/player/content/:playerid',(req,res)->
+	playerid = req.params.playerid
+	try
+		check(playerid,'player id').len(24)
+	catch e
+		return res.send error:e
+
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.getContents (err,contents)->
+			return res.send error:"internal error" if err
+			res.send result:contents
+
+
+
+
+
+app.post '/player/content/:playerid/:contentid',(req,res)->
+	playerid  = req.params.playerid
+	contentid = req.params.contentid
+
+	try
+		check( playerid,'player id' ).len(24)
+		check( contentid,'content id' ).len(24)
+	catch e
+		return res.send error:e
+
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.addContentAndSave contentid,(err,contents)->
+			return res.send error:"internal error" if err
+			res.send result:contents
+
+
+
+
+app.delete '/player/content/:playerid/:contentid',(req,res)->
+	playerid  = req.params.playerid
+	contentid = req.params.contentid
+
+	try
+		check( playerid,'player id' ).len(24)
+		check( contentid,'content id' ).len(24)
+	catch e
+		return res.send error:e
+
+	Player.findById playerid,(err,player)->
+		return res.send error:"player not found" if err||!player
+		player.removeSegmentAndSave contentid,(err,contents)->
+			return res.send error:"internal error" if err ||!contents
+			res.send result:contents
 
 
 app.listen('8080')
