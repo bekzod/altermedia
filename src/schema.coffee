@@ -8,7 +8,7 @@ ObjectId = Schema.Types.ObjectId
 
 
 exports = module.exports = (url)->
-	connection=mongoose.createConnection url
+	connection = mongoose.createConnection url
 
 	# 
 	# Content
@@ -27,7 +27,7 @@ exports = module.exports = (url)->
 	# 
 	# Transaction
 	# 
-	transition=new Schema
+	transition = new Schema
 		name:String
 		duration:Number
 
@@ -39,7 +39,7 @@ exports = module.exports = (url)->
 	# 
 	# Segment
 	# 
-	segment=new Schema
+	segment = new Schema
 		# id:{type: String,index: {unique: true, dropDups: true}}
 		playDuration:Number
 		startDate:{ type:Number,default:Date.now() }
@@ -68,12 +68,12 @@ exports = module.exports = (url)->
 	# 
 	# Player
 	# 
-	player=new Schema
+	player = new Schema
 		name:String
 		description:String
 		lastSync:Date
-		segments:[{type:ObjectId,ref:'Segment',index:{unique:true,dropDups:true}}]
-		contents:[{type:ObjectId,ref:'Content',index:{unique:true,dropDups:true}}]
+		segments:[{type:ObjectId,ref:'Segment'}]
+		contents:[{type:ObjectId,ref:'Content'}]
 
 
 	player.post 'remove',(next)->
@@ -82,7 +82,7 @@ exports = module.exports = (url)->
 			Segment.findById(segid).remove cb
 		,next
 
-	player.methods.getSegmentsWhichStillPlaying=(cb)->
+	player.methods.getSegmentsWhichStillPlaying = (cb)->
 		self = @
 		Segment = connection.model('Segment')
 
@@ -92,7 +92,7 @@ exports = module.exports = (url)->
 			,cb
 
 
-	player.methods.removeSegmentAndSave=(segmentId,cb)->
+	player.methods.removeSegmentAndSave = (segmentId,cb)->
 		self = @
 		Segment = connection.model('Segment')
 
@@ -103,7 +103,7 @@ exports = module.exports = (url)->
 		],cb
 
 
-	player.methods.removeSegmentsAndSave=(segmentIds,cb)->
+	player.methods.removeSegmentsAndSave = (segmentIds,cb)->
 		self = @
 		Segment = connection.model 'Segment' 
 		
@@ -116,7 +116,7 @@ exports = module.exports = (url)->
 		],cb
 
 
-	player.methods.addSegmentAndSave=(prop,cb)->
+	player.methods.addSegmentAndSave = (prop,cb)->
 		self = @
 		Segment = connection.model 'Segment' 
 
@@ -129,9 +129,9 @@ exports = module.exports = (url)->
 		],cb
 
 
-	player.methods.addSegmentsAndSave=(props,cb)->
+	player.methods.addSegmentsAndSave = (props,cb)->
 		self = @
-		Segment = connection.model('Segment')
+		Segment = connection.model 'Segment'
 
 		async.series [
 			(callback)->
@@ -142,6 +142,33 @@ exports = module.exports = (url)->
 				,callback
 			,(callback)->self.save callback
 		],cb
+
+
+
+	player.methods.getContents = (cb)->
+		self = @
+		Content = connection.model 'Content'
+		
+		Content.find
+			'_id': { $in:self.contents}
+			,cb
+
+
+
+	player.methods.addContentAndSave = (id,cb)->
+		self = @
+		Content = connection.model 'Content'
+
+		Content.findById id,(err,res)->
+			cb(error:err) if err || !res 
+			self.update {$addToSet: {contents: id}},cb
+
+
+
+
+	player.methods.removeContentAndSave = (id,cb)->
+		@contents.remove(id)
+		@save cb
 
 	connection.model('Player',player)
 
