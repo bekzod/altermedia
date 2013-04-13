@@ -36,30 +36,27 @@ exports = module.exports = (url)->
 
 
 
-
-
 	# 
 	# Segment
 	# 
 	segment=new Schema
 		# id:{type: String,index: {unique: true, dropDups: true}}
 		playDuration:Number
-		startDate:{type:Number,default:Date.now()}
+		startDate:{ type:Number,default:Date.now() }
 		endDate:Number
 		startOffset:Number
-		transitions:[{
+		transitions:[
 			tranistion:{type:ObjectId,ref:'Transtion'}
 			showAt:Number
 			playDuration:Number
-		}]
-		content:{type:ObjectId,ref:'Content'}
+		]
+		content:{ type:ObjectId,ref:'Content' }
 		,
 			toJSON:{getters:true,virtual: true,_id:false}
 
 	segment.pre 'save',(next)->
-		@endDate=@startDate+@playDuration
-		# @path('createdAt').expires @endDate-Date.now()
-		@createdAt={type: Date, expires:10}
+		@endDate   = @startDate + @playDuration
+		@createdAt = {type: Date, expires:10}
 		next()
 
 	connection.model "Segment",segment 
@@ -80,14 +77,14 @@ exports = module.exports = (url)->
 
 
 	player.post 'remove',(next)->
-		Segment=connection.model('Segment')
+		Segment = connection.model('Segment')
 		async.each @segments,(segid,cb)->
 			Segment.findById(segid).remove cb
 		,next
 
 	player.methods.getSegmentsWhichStillPlaying=(cb)->
-		self=@
-		Segment=connection.model('Segment')
+		self = @
+		Segment = connection.model('Segment')
 
 		Segment.find
 			'_id': { $in:self.segments}
@@ -97,7 +94,7 @@ exports = module.exports = (url)->
 
 	player.methods.removeSegmentAndSave=(segmentId,cb)->
 		self = @
-		Segment=connection.model('Segment')
+		Segment = connection.model('Segment')
 
 		@segments.remove(segmentId)
 		async.parallel [
@@ -108,7 +105,7 @@ exports = module.exports = (url)->
 
 	player.methods.removeSegmentsAndSave=(segmentIds,cb)->
 		self = @
-		Segment=connection.model 'Segment' 
+		Segment = connection.model 'Segment' 
 		
 		async.parallel [
 			(callback)->
@@ -121,9 +118,9 @@ exports = module.exports = (url)->
 
 	player.methods.addSegmentAndSave=(prop,cb)->
 		self = @
-		Segment=connection.model 'Segment' 
+		Segment = connection.model 'Segment' 
 
-		newseg=new Segment prop 
+		newseg = new Segment prop 
 		@segments.push newseg
 
 		async.parallel [
@@ -133,13 +130,13 @@ exports = module.exports = (url)->
 
 
 	player.methods.addSegmentsAndSave=(props,cb)->
-		self=@
-		Segment=connection.model('Segment')
+		self = @
+		Segment = connection.model('Segment')
 
 		async.series [
 			(callback)->
 				async.map props,(prop,fn)->
-					newseg=new Segment prop||{} 
+					newseg = new Segment prop||{} 
 					self.segments.push newseg._id
 					newseg.save fn
 				,callback
