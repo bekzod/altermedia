@@ -77,40 +77,40 @@ io.of('/player').on 'connection',(socket)->
 				socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",eventHandler.onPlayerProgress
 				socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",eventHandler.onPlayerComplete
 				socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",eventHandler.onPlayerFail
-				syncPlayer(handShakeData,res,callback)
+				syncPlayer(handShakeData.resources,res,callback)
 			else 
 				socket.disconnect()
 
 
 
 
-syncPlayer = (remotePlayer,serverPlayer,cb)->
+syncPlayer = (remotePlayerData,serverPlayer,cb)->
 	async.parallel [
 		(callback)->
-			serverPlayer.getSegmentsWhichStillPlaying (err,res)->
-				callback(err,res) if err||!res
+			serverPlayer.getSegmentsWhichStillPlaying (err,segments)->
+				callback(error:"internal error") if err||!segments
 
-				serverSegmentID = _.map res,(seg)->String(seg._id)
-				playerSegmentID = remotePlayer.resources.segments
+				serverSegmentsID = _.map segments,(seg)-> String(seg._id)
+				playerSegmentsID = remotePlayerData.segments
 		 
-				syncSegment = syncer.sync serverSegmentID,playerSegmentID		
-				addSegment  = syncSegment.add.map (id)-> _.find res,(seg)->seg._id is id
+				syncSegment = syncer.sync serverSegmentsID,playerSegmentsID		
+				delete syncSegment.same
 
-				callback null,{remove:syncSegment.remove,add:addSegment}
+				callback null,syncSegment
 
 		(callback)->
-			serverContentID = _.map serverPlayer.contents,(el)-> el+""
-			playerContentID = remotePlayer.resources.contents 
+			serverPlayer.getContents (err,contents)->
+				callback(error:"internal error") if err||!contents
 
-			syncContent = syncer.sync serverContentID,playerContentID
-			Content.find {'_id': { $in:syncContent.add}},(err,res)->
-				callback err,{ remove:syncContent.remove, add:res }
+				serverContentsID = _.map contents,(cont)-> String(cont._id)
+				playerContentsID = remotePlayerData.contents 
 
+				syncContent = syncer.sync serverContentsID,playerContentsID
+				delete syncContent.same
+
+				callback null,syncContent
 		],(err,res)->
-			cb(
-				segments : res[0]
-				content  : res[1]
-			 )
+			cb error:err,segments:res[0],contents:res[1]
 
 
 
