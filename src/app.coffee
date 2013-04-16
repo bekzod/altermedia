@@ -69,19 +69,23 @@ eventHandler.onPlayerFail=(e)->
 io.of('/admin').on 'connection',(socket)->
 
 
+
+io.of('/player').authorization (handshakeData,cb)->
+	appid = handshakeData.headers['application-id']	
+	Player.findById appid,(err,player)->
+		cb err if err
+		handshakeData.player = player
+		cb(null,true);
+
+
+
+
 io.of('/player').on 'connection',(socket)->
-
 	socket.on "CLIENT_EVENT_HANDSHAKE",(handShakeData,callback)->
-		Player.findById handShakeData.id,(err,res)->
-			if !err && res
-				socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",eventHandler.onPlayerProgress
-				socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",eventHandler.onPlayerComplete
-				socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",eventHandler.onPlayerFail
-				syncPlayer(handShakeData.resources,res,callback)
-			else 
-				socket.disconnect()
-
-
+		socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",eventHandler.onPlayerProgress
+		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",eventHandler.onPlayerComplete
+		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",eventHandler.onPlayerFail
+		syncPlayer(handShakeData.resources,socket.handshake.player,callback)
 
 
 syncPlayer = (remotePlayerData,serverPlayer,cb)->
