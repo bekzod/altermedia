@@ -49,15 +49,15 @@ Content    = con.model 'Content'
 
 
 
-
-
 eventHandler={}
-eventHandler.onPlayerProgress=(e)->
-	# console.log e
+eventHandler.onPlayerProgress = (e)->
+	console.log e
 
 
-eventHandler.onPlayerComplete=(e)->
-	# console.log e,"dawdaw"
+eventHandler.onPlayerComplete = (eventData,cb)->
+	Content.findById eventData.id,'-owner -__v',cb
+
+
 
 
 eventHandler.onPlayerFail=(e)->
@@ -71,7 +71,11 @@ io.of('/admin').on 'connection',(socket)->
 
 
 io.of('/player').authorization (handshakeData,cb)->
-	appid = handshakeData.headers['application-id']	
+	appid    = handshakeData.headers['app-id']	
+	appsign  = handshakeData.headers['app-sign']	
+	
+	return cb null,false if !appid || !appsign
+
 	Player.findById appid,(err,player)->
 		cb err if err
 		handshakeData.player = player
@@ -85,6 +89,7 @@ io.of('/player').on 'connection',(socket)->
 		socket.on "CLIENT_EVENT_DOWNLOAD_PROGRESS",eventHandler.onPlayerProgress
 		socket.on "CLIENT_EVENT_DOWNLOAD_COMPLETE",eventHandler.onPlayerComplete
 		socket.on "CLIENT_EVENT_DOWNLOAD_FAIL",eventHandler.onPlayerFail
+
 		syncPlayer(handShakeData.resources,socket.handshake.player,callback)
 
 
@@ -100,7 +105,10 @@ syncPlayer = (remotePlayerData,serverPlayer,cb)->
 				syncSegment = syncer.sync serverSegmentsID,playerSegmentsID		
 				delete syncSegment.same
 
-				callback null,syncSegment
+				addSegments = _.filter segments,(seg)->
+					_.contains syncSegment.add,seg.id
+
+				callback null,{add:addSegments,remove:syncSegment.remove}
 
 		(callback)->
 			serverPlayer.getContents (err,contents)->
@@ -123,8 +131,7 @@ syncPlayer = (remotePlayerData,serverPlayer,cb)->
 findPlayerSocketById = (playerId)->
 	playerSockets = io.of('/player').clients()
 	_.find playerSockets,(socks)->
-		socks.player&&socks.player.id is playerId
-
+		socks.handshake.player.id is playerId
 
 
 
@@ -214,7 +221,7 @@ app.post '/player/segment/:playerid',(req,res)->
 		check(playerid,'player id').len(24)
 		check(req.body.content,"content").notEmpty().len(24)
 		check(req.body.playDuration,'playDuration').isInt()
-		check(req.body.startDate,'playDuration').isAfter()
+		check(req.body.startDate,'startDate').min(Date.now())
 		check(req.body.startOffset,'startOffset').isInt()
 
 		if check(req.body.transitions,'transitions').isArray()
@@ -228,11 +235,12 @@ app.post '/player/segment/:playerid',(req,res)->
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
 		player.addSegmentAndSave req.body,(err,result)->
-			return res.send error:"internal error" if err
-			playerSocket = findPlayerSocketById playerid
+			return res.send err if err
 			segmentData  = result[0][0]
-
-			playerSocket.emit 'SERVER_EVENT_ADD_SEGMENT',{segments:[segmentData]}
+			
+			playerSocket = findPlayerSocketById playerid
+			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{segments:{add:[segmentData]}}
+			
 			res.send result:segmentData
 
 
@@ -253,8 +261,9 @@ app.delete '/player/segment/:playerid/:segmentid',(req,res)->
 		return res.send error:"player not found" if err||!player
 		player.removeSegmentAndSave segmentid,(err,result)->
 			return res.send error:"internal error" if err
-			playerSocket = findPlayerSocketById playerid
 			
+			playerSocket = findPlayerSocketById playerid
+			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{segments:{remove:[segmentid]}}			
 			res.send result:result[0]
 
 
@@ -289,9 +298,11 @@ app.post '/player/content/:playerid/:contentid',(req,res)->
 
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
-		player.addContentAndSave contentid,(err,contents)->
+		player.addContentAndSave contentid,(err,content)->
 			return res.send error:"internal error" if err
-			res.send result:contents
+			playerSocket = findPlayerSocketById playerid
+			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{contents:{add:[contentid]}}
+			res.send result:content
 
 
 
@@ -308,9 +319,11 @@ app.delete '/player/content/:playerid/:contentid',(req,res)->
 
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
-		player.removeSegmentAndSave contentid,(err,contents)->
-			return res.send error:"internal error" if err ||!contents
-			res.send result:contents
+		player.removeContentAndSave contentid,(err,content)->
+			return res.send error:"internal error" if err ||!content
+			playerSocket = findPlayerSocketById playerid;
+			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{contents:{remove:[contentid]}}
+			res.send result:1
 
 
 app.listen('8080')

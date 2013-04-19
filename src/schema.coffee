@@ -15,12 +15,17 @@ exports = module.exports = (url)->
 	# 
 	content = new Schema
 		size:Number
-		playDuration:{type:Number,default:-1}
+		hash:String
 		owner:[String]
+		duration:{type:Number,default:-1}
 		type:{type: String, enum: ['application/x-shockwave-flash','image/jpeg','image/png','audio/mp3','video/mp4']}
 		description:{
 			name:String
 		}
+		,
+			toJSON:{getters:true,virtual:true,_id:false,__v:false}
+
+
 	connection.model "Content",content
 
 
@@ -46,19 +51,18 @@ exports = module.exports = (url)->
 		endDate:Number
 		startOffset:Number
 		transitions:[
-			tranistion:{type:ObjectId,ref:'Transtion'}
-			showAt:Number
+			id:{type:ObjectId,ref:'Transtion'}
+			startDate:Number
 			playDuration:Number
 		]
 		content:{ type:ObjectId,ref:'Content' }
 		,
-			toJSON:{getters:true,virtual: true,_id:false}
+		 toJSON:{getters:true,virtual: true}
 
 	segment.pre 'save',(next)->
 		@endDate   = @startDate + @playDuration
-		@createdAt = {type: Date, expires:10}
 		next()
-
+	
 	connection.model "Segment",segment 
 
 
@@ -87,9 +91,15 @@ exports = module.exports = (url)->
 		Segment = connection.model('Segment')
 
 		Segment.find
-			'_id': { $in:self.segments}
-			'endDate': { $gte:Date.now()} 
+			_id: { $in:self.segments}
+			endDate: { $gte:Date.now()}
+			,'-__v' 
 			,cb
+
+		Segment.remove 
+			endDate: { $lte:Date.now()}
+			,(err,res)->
+				console.log err,res
 
 
 	player.methods.removeSegmentAndSave = (segmentId,cb)->
@@ -119,6 +129,8 @@ exports = module.exports = (url)->
 	player.methods.addSegmentAndSave = (prop,cb)->
 		self = @
 		Segment = connection.model 'Segment' 
+
+		return cb(error:"content is not on player") if @contents.indexOf(prop.content)==-1
 
 		newseg = new Segment prop 
 		@segments.push newseg
