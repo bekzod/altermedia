@@ -31,4 +31,4 @@ test-local-w:
 	--reporter $(REPORTER) \
 	--watch \
 
-.PHONY: test test-w
+.PHONY: generate-js test

@@ -5,10 +5,19 @@ Schema = mongoose.Schema
 ObjectId = Schema.Types.ObjectId
 
 
-
-
 exports = module.exports = (url)->
 	connection = mongoose.createConnection url
+
+
+	# 
+	# User	 
+	# 
+
+	user = new Schema
+		name:String
+
+	connection.model "User",user
+
 
 	# 
 	# Content
@@ -16,7 +25,7 @@ exports = module.exports = (url)->
 	content = new Schema
 		size:Number
 		hash:String
-		owner:[String]
+		onwers:[{type:ObjectId,ref:'User'}]
 		duration:{type:Number,default:-1}
 		type:{type: String, enum: ['application/x-shockwave-flash','image/jpeg','image/png','audio/mp3','video/mp4']}
 		description:{
@@ -28,17 +37,7 @@ exports = module.exports = (url)->
 
 	connection.model "Content",content
 
-
-	# 
-	# Transaction
-	# 
-	transition = new Schema
-		name:String
-		duration:Number
-
-	connection.model "Transition",transition 
-
-
+	
 
 
 	# 
@@ -51,8 +50,8 @@ exports = module.exports = (url)->
 		endDate:Number
 		startOffset:Number
 		transitions:[
-			id:{type:ObjectId,ref:'Transtion'}
-			startDate:Number
+			id:{type:ObjectId,ref:'Content'}
+			startTime:Number
 			playDuration:Number
 		]
 		content:{ type:ObjectId,ref:'Content' }
@@ -60,7 +59,7 @@ exports = module.exports = (url)->
 		 toJSON:{getters:true,virtual: true}
 
 	segment.pre 'save',(next)->
-		@endDate   = @startDate + @playDuration
+		@endDate = @startDate + @playDuration
 		next()
 	
 	connection.model "Segment",segment 
@@ -76,6 +75,7 @@ exports = module.exports = (url)->
 		name:String
 		description:String
 		lastSync:Date
+		onwers:[{type:ObjectId,ref:'User'}]
 		segments:[{type:ObjectId,ref:'Segment'}]
 		contents:[{type:ObjectId,ref:'Content'}]
 
@@ -86,30 +86,44 @@ exports = module.exports = (url)->
 			Segment.findById(segid).remove cb
 		,next
 
+
+
 	player.methods.getSegmentsWhichStillPlaying = (cb)->
+			self = @
+			Segment = connection.model('Segment')
+
+			Segment.find
+				'_id': { $in:self.segments}
+				'endDate': { $gte:Date.now()} 
+				,cb
+					
+	player.methods.getSegments = (opts,cb)->
 		self = @
 		Segment = connection.model('Segment')
 
-		Segment.find
-			_id: { $in:self.segments}
-			endDate: { $gte:Date.now()}
-			,'-__v' 
-			,cb
+		opts = opts || {}
+		opts.fromDate = opts.fromDate || Date.now()
 
-		Segment.remove 
-			endDate: { $lte:Date.now()}
-			,(err,res)->
-				console.log err,res
+		query = {}   
+		query._id = {$in:self.segments}
+		query.$or = [ 
+			{startDate:{$gt:opts.fromDate,$lt:opts.toDate}}
+			{endDate:{$gt:opts.fromDate,$lt:opts.toDate}}
+		]
+
+		Segment.find query,'-__v',opts,cb
+
 
 
 	player.methods.removeSegmentAndSave = (segmentId,cb)->
 		self = @
 		Segment = connection.model('Segment')
 
-		@segments.remove(segmentId)
 		async.parallel [
 			(callback)->Segment.remove {_id:segmentId},callback 
-			(callback)->self.save callback
+			(callback)->
+				self.segments.remove(segmentId)
+				self.save callback
 		],cb
 
 
