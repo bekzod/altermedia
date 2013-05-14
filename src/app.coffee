@@ -24,25 +24,25 @@ allowCrossDomain = (req, res, next)->
 		res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
 		res.header('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 		next();
-	else 
+	else
 		res.send(403, {auth: false});
 
 
-# 
+#
 # App config
-# 
+#
 app.configure ->
 	app.use allowCrossDomain
-	app.use express.methodOverride() 
-	app.use express.bodyParser() 
-	app.use app.router 
+	app.use express.methodOverride()
+	app.use express.bodyParser()
+	app.use app.router
 	app.use express.static(path.join(__dirname,'../public'))
 
 
 
-# 
-# socket.io configuration 
-# 
+#
+# socket.io configuration
+#
 io.configure "production",->
 	io.set 'log level',0
 	io.set 'transports',[
@@ -51,14 +51,14 @@ io.configure "production",->
 		'htmlfile'
 	]
 
-# 
+#
 # Database connection
 #
 con = require('./schema')(process.env.DATABASE)
 
-# 
+#
 # Database tables
-# 
+#
 Segment    = con.model 'Segment'
 Player     = con.model 'Player'
 Content    = con.model 'Content'
@@ -96,9 +96,9 @@ io.of('/admin').authorization (handshakeData,cb)->
 
 
 io.of('/player').authorization (handshakeData,cb)->
-	appid    = handshakeData.headers['app-id']	
-	appsign  = handshakeData.headers['app-sign']	
-	
+	appid    = handshakeData.headers['app-id']
+	appsign  = handshakeData.headers['app-sign']
+
 	return cb null,false if !appid || !appsign
 	Player.findById appid,(err,player)->
 		if err||!player then return cb(null,false);
@@ -125,8 +125,8 @@ syncPlayer = (remotePlayerData,serverPlayer,cb)->
 
 				serverSegmentsID = _.map segments,(seg)-> String(seg._id)
 				playerSegmentsID = remotePlayerData.segments
-		 
-				syncSegment = syncer.sync serverSegmentsID,playerSegmentsID		
+
+				syncSegment = syncer.sync serverSegmentsID,playerSegmentsID
 				delete syncSegment.same
 
 				addSegments = _.filter segments,(seg)->
@@ -139,7 +139,7 @@ syncPlayer = (remotePlayerData,serverPlayer,cb)->
 				return callback(error:"internal error") if err||!contents
 
 				serverContentsID = _.map contents,(cont)-> String(cont._id)
-				playerContentsID = remotePlayerData.contents 
+				playerContentsID = remotePlayerData.contents
 
 				syncContent = syncer.sync serverContentsID,playerContentsID
 				delete syncContent.same
@@ -231,7 +231,7 @@ app.post '/player',(req,res)->
 app.get '/player/segment/:playerid',(req,res)->
 	playerid = req.params.playerid
 	opts = {}
-	opts.limit = req.query.limit || 30 
+	opts.limit = req.query.limit || 30
 	opts.skip  = req.query.skip  || 0
 	opts.sort  = {}
 	opts.sort[req.query.sort||'_id'] = parseInt(req.query.asc||-1)
@@ -256,7 +256,7 @@ app.get '/player/segment/:playerid',(req,res)->
 app.put '/player/segment/:playerid/:segmentid',(req,res)->
 	playerid  = req.params.playerid
 	segmentid = req.params.segmentid
-	
+
 	delete req.body.id
 	delete req.body._id
 
@@ -264,14 +264,14 @@ app.put '/player/segment/:playerid/:segmentid',(req,res)->
 		check(playerid,'player id').len(24)
 		check(req.body.content,"content").notEmpty().len(24)
 		check(req.body.playDuration,'playDuration').isInt()
-		check(req.body.startDate,'startDate').min(Date.now())
+		check(req.body.startDate+req.body.playDuration,'endDate').min(Date.now())
 		check(req.body.startOffset,'startOffset').isInt()
 
 		if check(req.body.transitions,'transitions').isArray()
 	    	for item in req.body.transitions
 	    		check(item.id,'transition item').notEmpty().len(24)
 	    		check(item.startTime,'transition item').isInt()
-	    		check(item.playDuration,'transition item').isInt()	
+	    		check(item.playDuration,'transition item').isInt()
 	catch e
 		return res.status(300).send error:e
 
@@ -302,7 +302,7 @@ app.post '/player/segment/:playerid',(req,res)->
 	    	for item in req.body.transitions
 	    		check(item.id,'transition item').notEmpty().len(24)
 	    		check(item.startTime,'transition item').isInt()
-	    		check(item.playDuration,'transition item').isInt()	
+	    		check(item.playDuration,'transition item').isInt()
 	catch e
 		return res.status(300).send error:e
 
@@ -330,9 +330,9 @@ app.delete '/player/segment/:playerid/:segmentid',(req,res)->
 		return res.send error:"player not found" if err||!player
 		player.removeSegmentAndSave segmentid,(err,result)->
 			return res.send error:"internal error" if err
-			
+
 			playerSocket = findPlayerSocketById playerid
-			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{segments:{remove:[segmentid]}}			
+			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{segments:{remove:[segmentid]}}
 			res.send result:result[0]
 
 
@@ -363,7 +363,7 @@ app.post '/player/content/:playerid/:contentid',(req,res)->
 	Player.findById playerid,(err,player)->
 		return res.send error:"player not found" if err||!player
 		player.addContentAndSave contentid,(err,content)->
-			if err then return res.send error:"internal error" 
+			if err then return res.send error:"internal error"
 			playerSocket = findPlayerSocketById playerid
 			if playerSocket then playerSocket.emit 'SERVER_EVENT_DATA_CHANGE',{contents:{add:[contentid]}}
 			res.send result:content
