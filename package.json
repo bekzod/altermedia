@@ -27,7 +27,7 @@
     "node": "0.8.x"
   },
   "devDependencies": {
-    "coffee-script": "~1.12.6",
+    "coffee-script": "~1.12.7",
     "mocha": "~3.4.2",
     "should": "~11.2.1"
   }
